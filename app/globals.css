@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-atlia-gray text-gray-800 font-sans;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+
+  .btn-primary {
+    @apply bg-atlia-navy text-white px-4 py-2 rounded-lg font-medium
+           hover:bg-atlia-blue transition-colors duration-200 text-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-atlia-navy border border-atlia-navy px-4 py-2
+           rounded-lg font-medium hover:bg-atlia-light transition-colors duration-200 text-sm;
+  }
+
+  .badge-green {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-green-100 text-green-800;
+  }
+
+  .badge-yellow {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-red {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-red-100 text-red-800;
+  }
+
+  .badge-gray {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-gray-100 text-gray-700;
+  }
+
+  .semaforo-green  { @apply w-3 h-3 rounded-full bg-atlia-green inline-block; }
+  .semaforo-yellow { @apply w-3 h-3 rounded-full bg-atlia-yellow inline-block; }
+  .semaforo-red    { @apply w-3 h-3 rounded-full bg-atlia-red inline-block; }
+  .semaforo-gray   { @apply w-3 h-3 rounded-full bg-gray-400 inline-block; }
+}
