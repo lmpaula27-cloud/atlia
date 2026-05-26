@@ -1,3 +1,4 @@
+'use client'
 import Header from '@/components/Header'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { Target, Plus, ChevronRight } from 'lucide-react'
