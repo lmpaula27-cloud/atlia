@@ -4,15 +4,17 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FolderKanban, Target, BarChart3,
-  FileText, Settings, LogOut, ChevronRight
+  FileText, Settings, LogOut, ChevronRight, Map, Compass
 } from 'lucide-react'
 
 const nav = [
-  { href: '/dashboard',             label: 'Painel Executivo',  icon: LayoutDashboard },
-  { href: '/dashboard/objetivos',   label: 'Objetivos',         icon: Target },
-  { href: '/dashboard/projetos',    label: 'Projetos',          icon: FolderKanban },
-  { href: '/dashboard/indicadores', label: 'Indicadores',       icon: BarChart3 },
-  { href: '/dashboard/relatorios',  label: 'Relatórios',        icon: FileText },
+  { href: '/dashboard',                    label: 'Painel Executivo',   icon: LayoutDashboard },
+  { href: '/dashboard/mapa-estrategico',   label: 'Mapa Estratégico',   icon: Compass         },
+  { href: '/dashboard/objetivos',          label: 'Objetivos',          icon: Target          },
+  { href: '/dashboard/projetos',           label: 'Projetos',           icon: FolderKanban    },
+  { href: '/dashboard/mapa',               label: 'Mapa da Cidade',     icon: Map             },
+  { href: '/dashboard/indicadores',        label: 'Indicadores',        icon: BarChart3       },
+  { href: '/dashboard/relatorios',         label: 'Relatórios',         icon: FileText        },
 ]
 
 export default function Sidebar({ municipio }: { municipio: string }) {
