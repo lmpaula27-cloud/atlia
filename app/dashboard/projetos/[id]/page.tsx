@@ -1,6 +1,4 @@
 'use client'
-import { notFound, useRouter } from 'next/navigation'
-import { use } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import ProgressBar from '@/components/ui/ProgressBar'
@@ -53,10 +51,20 @@ function corBarra(status: string) {
   return '#70AD47'
 }
 
-export default function ProjetoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function ProjetoDetalhePage({ params }: { params: { id: string } }) {
+  const { id } = params
   const projeto = getProjetoById(id)
-  if (!projeto) notFound()
+
+  if (!projeto) {
+    return (
+      <div className="flex flex-col flex-1 items-center justify-center text-atlia-muted">
+        <p className="text-lg font-semibold">Projeto não encontrado</p>
+        <Link href="/dashboard/projetos" className="mt-3 text-sm text-atlia-blue hover:underline">
+          ← Voltar para Projetos
+        </Link>
+      </div>
+    )
+  }
 
   const pctExecucao = Math.round((projeto.executado / projeto.orcamento) * 100)
   const saldo = projeto.orcamento - projeto.executado
