@@ -1,12 +1,10 @@
 'use client'
-import { useState } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import React, { useState } from 'react'
 import Header from '@/components/Header'
 import {
   Building2, Users, CreditCard, Layers,
   Save, Plus, Pencil, Trash2, CheckCircle2,
-  Shield, Eye, Settings2, Crown, MapPin,
-  Phone, Mail, Globe, Calendar, ChevronRight,
+  Crown, MapPin, Phone, Mail, Globe, Calendar,
   AlertCircle,
 } from 'lucide-react'
 
@@ -56,14 +54,14 @@ const usuariosInit: Usuario[] = [
 ]
 
 const perfilInfo = {
-  admin:        { label:'Administrador', cor:'bg-atlia-navy text-white',         icon: Crown   },
-  gestor:       { label:'Gestor',         cor:'bg-blue-100 text-blue-800',        icon: Shield  },
-  visualizador: { label:'Visualizador',   cor:'bg-gray-100 text-gray-600',        icon: Eye     },
+  admin:        { label:'Administrador', cor:'bg-atlia-navy text-white'  },
+  gestor:       { label:'Gestor',        cor:'bg-blue-100 text-blue-800' },
+  visualizador: { label:'Visualizador',  cor:'bg-gray-100 text-gray-600' },
 }
 
 /* ─── componentes auxiliares ─── */
 function AbaBtn({ id, label, icon: Icon, ativa, onClick }: {
-  id: Aba; label: string; icon: LucideIcon; ativa: boolean; onClick: () => void
+  id: Aba; label: string; icon: React.ElementType; ativa: boolean; onClick: () => void
 }) {
   return (
     <button
@@ -311,12 +309,14 @@ export default function ConfiguracoesPage() {
             {/* Legenda de perfis */}
             <div className="card py-3 flex items-center gap-6 flex-wrap">
               <span className="text-xs font-semibold text-atlia-muted uppercase tracking-wider">Perfis de acesso:</span>
-              {(Object.entries(perfilInfo) as [keyof typeof perfilInfo, typeof perfilInfo[keyof typeof perfilInfo]][]).map(([key, p]) => (
-                <div key={key} className="flex items-center gap-2">
+              {([
+                { key: 'admin',        label: 'Administrador', cor: 'bg-atlia-navy text-white',  desc: '— acesso total'           },
+                { key: 'gestor',       label: 'Gestor',        cor: 'bg-blue-100 text-blue-800', desc: '— editar sua secretaria'  },
+                { key: 'visualizador', label: 'Visualizador',  cor: 'bg-gray-100 text-gray-600', desc: '— somente leitura'        },
+              ] as const).map(p => (
+                <div key={p.key} className="flex items-center gap-2">
                   <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${p.cor}`}>{p.label}</span>
-                  <span className="text-xs text-atlia-muted">
-                    {key === 'admin' ? '— acesso total' : key === 'gestor' ? '— editar sua secretaria' : '— somente leitura'}
-                  </span>
+                  <span className="text-xs text-atlia-muted">{p.desc}</span>
                 </div>
               ))}
             </div>
