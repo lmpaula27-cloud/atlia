@@ -36,7 +36,7 @@ export default function LoginPage() {
 
     setCarregando(true)
     // Mock auth — aguarda 1.4s e redireciona
-    await new Promise(r => setTimeout(r, 1400))
+    await new Promise<void>(resolve => setTimeout(resolve, 1400))
     router.push('/dashboard')
   }
 

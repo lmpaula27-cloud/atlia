@@ -290,11 +290,11 @@ export default function LandingPage() {
               { icon: AlertTriangle, titulo: 'Projetos se perdem', descricao: 'Sem sistema centralizado, projetos ficam em planilhas desatualizadas e e-mails. Ninguém sabe o status real.', cor: 'text-red-500', bg: 'bg-red-50 border-red-100' },
               { icon: Clock,         titulo: 'Prazos sem controle', descricao: 'Sem alertas automáticos, os atrasos só aparecem nas notícias — quando já é tarde para agir.', cor: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-100' },
               { icon: TrendingUp,    titulo: 'Prestação de contas difícil', descricao: 'Montar um relatório para a câmara consome dias. Com Atlia, são gerados em segundos.', cor: 'text-blue-500', bg: 'bg-blue-50 border-blue-100' },
-            ].map(p => (
-              <div key={p.titulo} className={`rounded-xl border p-6 ${p.bg}`}>
-                <p.icon size={24} className={`${p.cor} mb-3`} />
-                <h3 className="font-bold text-gray-800 mb-2">{p.titulo}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{p.descricao}</p>
+            ].map(({ icon: CardIcon, titulo, descricao, cor, bg }) => (
+              <div key={titulo} className={`rounded-xl border p-6 ${bg}`}>
+                <CardIcon size={24} className={`${cor} mb-3`} />
+                <h3 className="font-bold text-gray-800 mb-2">{titulo}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{descricao}</p>
               </div>
             ))}
           </div>
