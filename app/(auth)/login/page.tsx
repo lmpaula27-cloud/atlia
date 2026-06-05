@@ -37,26 +37,32 @@ export default function LoginPage() {
 
     setCarregando(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha,
-    })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      })
 
-    if (error) {
-      setCarregando(false)
-      if (error.message.includes('Invalid login credentials')) {
-        setErro('E-mail ou senha incorretos. Verifique e tente novamente.')
-      } else if (error.message.includes('Email not confirmed')) {
-        setErro('Confirme seu e-mail antes de acessar. Verifique sua caixa de entrada.')
-      } else {
-        setErro('Erro ao entrar. Tente novamente em instantes.')
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setErro('E-mail ou senha incorretos. Verifique e tente novamente.')
+        } else if (error.message.includes('Email not confirmed')) {
+          setErro('Confirme seu e-mail antes de acessar.')
+        } else {
+          setErro(`Erro: ${error.message}`)
+        }
+        return
       }
-      return
-    }
 
-    router.push('/dashboard')
-    router.refresh()
+      router.push('/dashboard')
+      router.refresh()
+    } catch (err) {
+      setErro('Não foi possível conectar ao servidor. Verifique sua conexão.')
+      console.error('Login error:', err)
+    } finally {
+      setCarregando(false)
+    }
   }
 
   return (
