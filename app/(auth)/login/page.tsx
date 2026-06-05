@@ -7,6 +7,7 @@ import {
   Target, FolderKanban, BarChart3, FileText,
   ArrowLeft, Loader2,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 const beneficios = [
   { icon: Target,       texto: 'Mapa Estratégico com eixos e objetivos do mandato'   },
@@ -35,8 +36,27 @@ export default function LoginPage() {
     }
 
     setCarregando(true)
-    await new Promise<void>(resolve => setTimeout(resolve, 1400))
+
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: senha,
+    })
+
+    if (error) {
+      setCarregando(false)
+      if (error.message.includes('Invalid login credentials')) {
+        setErro('E-mail ou senha incorretos. Verifique e tente novamente.')
+      } else if (error.message.includes('Email not confirmed')) {
+        setErro('Confirme seu e-mail antes de acessar. Verifique sua caixa de entrada.')
+      } else {
+        setErro('Erro ao entrar. Tente novamente em instantes.')
+      }
+      return
+    }
+
     router.push('/dashboard')
+    router.refresh()
   }
 
   return (

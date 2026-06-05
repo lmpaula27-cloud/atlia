@@ -1,11 +1,12 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FolderKanban, Target, BarChart3,
   FileText, Settings, LogOut, ChevronRight, Compass
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 const nav = [
   { href: '/dashboard',                    label: 'Painel Executivo',   icon: LayoutDashboard },
@@ -17,7 +18,15 @@ const nav = [
 ]
 
 export default function Sidebar({ municipio }: { municipio: string }) {
-  const pathname = usePathname()
+  const pathname  = usePathname()
+  const router    = useRouter()
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-atlia-navy flex flex-col z-40">
@@ -69,10 +78,13 @@ export default function Sidebar({ municipio }: { municipio: string }) {
           <Settings size={18} />
           <span>Configurações</span>
         </Link>
-        <Link href="/login" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-all">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-all"
+        >
           <LogOut size={18} />
           <span>Sair</span>
-        </Link>
+        </button>
       </div>
     </aside>
   )
