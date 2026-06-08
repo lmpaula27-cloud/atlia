@@ -9,6 +9,7 @@ import ProjetoForm from '@/components/forms/ProjetoForm'
 import { formatCurrency } from '@/lib/utils'
 import { Search, Plus, Filter, FolderKanban, ChevronRight, Loader2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 type TipoGanho = 'N/A' | 'Operacional' | 'Financeiro' | 'Econômico'
 
@@ -71,6 +72,7 @@ export default function ProjetosPage() {
   const [secretaria, setSecretaria]   = useState('Todas')
   const [status, setStatus]           = useState('Todos')
   const [tipoGanho, setTipoGanho]     = useState<TipoGanho | 'Todos'>('Todos')
+  const usuario = useCurrentUser()
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -181,13 +183,15 @@ export default function ProjetosPage() {
             <option value="Todos">Tipo de ganho</option>
             {tiposGanho.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <button
-            onClick={() => setFormAberto(true)}
-            className="btn-primary flex items-center gap-2 ml-auto"
-          >
-            <Plus size={15} />
-            Novo Projeto
-          </button>
+          {(usuario.perfil === 'admin' || usuario.perfil === 'gestor') && (
+            <button
+              onClick={() => setFormAberto(true)}
+              className="btn-primary flex items-center gap-2 ml-auto"
+            >
+              <Plus size={15} />
+              Novo Projeto
+            </button>
+          )}
         </div>
 
         {/* Tabela */}
@@ -288,6 +292,7 @@ export default function ProjetosPage() {
         onFechar={() => setFormAberto(false)}
       >
         <ProjetoForm
+          secretariaInicial={usuario.perfil === 'gestor' ? usuario.secretaria_id ?? undefined : undefined}
           onSuccess={(msg) => {
             setFormAberto(false)
             setSucesso(msg)

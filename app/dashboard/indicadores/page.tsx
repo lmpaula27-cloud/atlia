@@ -6,6 +6,7 @@ import ProgressBar from '@/components/ui/ProgressBar'
 import SlidePanel from '@/components/ui/SlidePanel'
 import IndicadorForm from '@/components/forms/IndicadorForm'
 import { Plus, TrendingUp, TrendingDown, Filter, BarChart3, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 
@@ -54,6 +55,7 @@ export default function IndicadoresPage() {
   const [filtroSec, setFiltroSec]     = useState('Todas')
   const [formAberto, setFormAberto]   = useState(false)
   const [sucesso, setSucesso]         = useState('')
+  const usuario = useCurrentUser()
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -153,13 +155,15 @@ export default function IndicadoresPage() {
             </select>
           </div>
 
-          <button
-            onClick={() => setFormAberto(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={15} />
-            Novo Indicador
-          </button>
+          {(usuario.perfil === 'admin' || usuario.perfil === 'gestor') && (
+            <button
+              onClick={() => setFormAberto(true)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={15} />
+              Novo Indicador
+            </button>
+          )}
         </div>
 
         {/* Gráfico de atingimento */}
@@ -248,6 +252,7 @@ export default function IndicadoresPage() {
         onFechar={() => setFormAberto(false)}
       >
         <IndicadorForm
+          secretariaInicial={usuario.perfil === 'gestor' ? usuario.secretaria_id ?? undefined : undefined}
           onSuccess={(msg) => {
             setFormAberto(false)
             setSucesso(msg)

@@ -1,113 +1,296 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/Header'
+import SlidePanel from '@/components/ui/SlidePanel'
+import SecretariaForm, { type SecretariaEditavel } from '@/components/forms/SecretariaForm'
+import EixoForm, { type EixoEditavel } from '@/components/forms/EixoForm'
+import ObjetivoForm, { type ObjetivoEditavel } from '@/components/forms/ObjetivoForm'
 import {
-  Building2, Users, CreditCard, Layers,
+  Building2, Users, CreditCard, Layers, Compass, Target,
   Save, Plus, Pencil, Trash2, CheckCircle2,
-  Crown, MapPin, Phone, Mail, Globe, Calendar,
-  AlertCircle,
+  Crown, Phone, Mail, Globe, Calendar,
+  AlertCircle, Loader2, XCircle,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-/* ─── tipos ─── */
-type Aba = 'municipio' | 'secretarias' | 'usuarios' | 'plano'
+type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'usuarios' | 'plano'
 
-interface Secretaria {
-  id: string
-  nome: string
-  responsavel: string
-  cor: string
-  projetos: number
-  ativa: boolean
+// ── Tipos ──────────────────────────────────────────────────────
+interface SecretariaRow {
+  id: string; nome: string; sigla: string | null; responsavel: string | null
+  cor: string; ativa: boolean; projetos?: number
+}
+interface EixoRow {
+  id: string; nome: string; descricao: string | null; cor: string; ordem: number
+}
+interface ObjetivoRow {
+  id: string; nome: string; descricao: string | null
+  eixo_id: string; eixo_nome: string; eixo_cor: string; pct_atual: number
+}
+interface UsuarioRow {
+  id: string; nome: string; cargo: string | null
+  perfil: 'admin' | 'gestor' | 'visualizador'; ativo: boolean
+  secretaria_nome: string | null; email?: string
 }
 
-interface Usuario {
-  id: string
-  nome: string
-  email: string
-  cargo: string
-  perfil: 'admin' | 'gestor' | 'visualizador'
-  secretaria: string
-  ativo: boolean
-  ultimoAcesso: string
-}
-
-/* ─── dados mock ─── */
-const secretariasInit: Secretaria[] = [
-  { id:'1', nome:'Obras e Infraestrutura',       responsavel:'João Silva',    cor:'#1F3864', projetos:11, ativa:true  },
-  { id:'2', nome:'Saúde',                         responsavel:'Maria Souza',   cor:'#C00000', projetos:10, ativa:true  },
-  { id:'3', nome:'Educação',                      responsavel:'Carlos Lima',   cor:'#2E75B6', projetos: 8, ativa:true  },
-  { id:'4', nome:'Urbanismo e Planejamento',      responsavel:'Ana Costa',     cor:'#538135', projetos: 7, ativa:true  },
-  { id:'5', nome:'Trabalho e Geração de Renda',   responsavel:'Pedro Rocha',   cor:'#C07B00', projetos: 5, ativa:true  },
-  { id:'6', nome:'Assistência Social',            responsavel:'Lucia Alves',   cor:'#7B2D8B', projetos: 6, ativa:true  },
-  { id:'7', nome:'Meio Ambiente',                 responsavel:'Rita Ferreira', cor:'#197A3E', projetos: 4, ativa:true  },
-  { id:'8', nome:'Administração Digital',         responsavel:'Fábio Torres',  cor:'#0070C0', projetos: 3, ativa:false },
-]
-
-const usuariosInit: Usuario[] = [
-  { id:'1', nome:'Administrador',       email:'admin@uberlandia.mg.gov.br',    cargo:'Prefeito(a)',              perfil:'admin',        secretaria:'Gabinete',        ativo:true,  ultimoAcesso:'01/06/2026' },
-  { id:'2', nome:'João Silva',          email:'joao.silva@uberlandia.mg.gov.br',    cargo:'Secretário de Obras',     perfil:'gestor',       secretaria:'Obras',           ativo:true,  ultimoAcesso:'01/06/2026' },
-  { id:'3', nome:'Maria Souza',         email:'maria.souza@uberlandia.mg.gov.br',   cargo:'Secretária de Saúde',     perfil:'gestor',       secretaria:'Saúde',           ativo:true,  ultimoAcesso:'31/05/2026' },
-  { id:'4', nome:'Carlos Lima',         email:'carlos.lima@uberlandia.mg.gov.br',   cargo:'Secretário de Educação',  perfil:'gestor',       secretaria:'Educação',        ativo:true,  ultimoAcesso:'30/05/2026' },
-  { id:'5', nome:'Ana Costa',           email:'ana.costa@uberlandia.mg.gov.br',     cargo:'Secretária de Urbanismo', perfil:'gestor',       secretaria:'Urbanismo',       ativo:true,  ultimoAcesso:'29/05/2026' },
-  { id:'6', nome:'Lucia Alves',         email:'lucia.alves@uberlandia.mg.gov.br',   cargo:'Assessora de Projetos',   perfil:'visualizador', secretaria:'Assistência',     ativo:true,  ultimoAcesso:'28/05/2026' },
-  { id:'7', nome:'Fábio Torres',        email:'fabio.torres@uberlandia.mg.gov.br',  cargo:'Coord. de TI',            perfil:'admin',        secretaria:'Adm. Digital',    ativo:false, ultimoAcesso:'15/04/2026' },
-]
+const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-1 focus:ring-atlia-blue/20 transition-all'
+const labelCls = 'block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5'
 
 const perfilInfo = {
-  admin:        { label:'Administrador', cor:'bg-atlia-navy text-white'  },
-  gestor:       { label:'Gestor',        cor:'bg-blue-100 text-blue-800' },
-  visualizador: { label:'Visualizador',  cor:'bg-gray-100 text-gray-600' },
+  admin:        { label: 'Administrador', cor: 'bg-atlia-navy text-white'  },
+  gestor:       { label: 'Gestor',        cor: 'bg-blue-100 text-blue-800' },
+  visualizador: { label: 'Visualizador',  cor: 'bg-gray-100 text-gray-600' },
 }
 
-/* ─── componentes auxiliares ─── */
 function AbaBtn({ id, label, icon: Icon, ativa, onClick }: {
   id: Aba; label: string; icon: React.ElementType; ativa: boolean; onClick: () => void
 }) {
   return (
-    <button
-      onClick={onClick}
+    <button onClick={onClick}
       className={`flex items-center gap-2.5 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-        ${ativa
-          ? 'border-atlia-navy text-atlia-navy'
-          : 'border-transparent text-atlia-muted hover:text-atlia-navy hover:border-gray-200'
-        }`}
-    >
-      <Icon size={15} />
-      {label}
+        ${ativa ? 'border-atlia-navy text-atlia-navy' : 'border-transparent text-atlia-muted hover:text-atlia-navy hover:border-gray-200'}`}>
+      <Icon size={15} />{label}
     </button>
   )
 }
 
-/* ─── página principal ─── */
+// ── Componente principal ───────────────────────────────────────
 export default function ConfiguracoesPage() {
-  const [aba, setAba]                   = useState<Aba>('municipio')
-  const [secretarias, setSecretarias]   = useState<Secretaria[]>(secretariasInit)
-  const [usuarios]                      = useState<Usuario[]>(usuariosInit)
-  const [salvando, setSalvando]         = useState(false)
-  const [salvo, setSalvo]               = useState(false)
+  const [aba, setAba] = useState<Aba>('municipio')
+  const [sucesso, setSucesso] = useState('')
 
-  async function handleSalvar() {
-    setSalvando(true)
-    await new Promise(r => setTimeout(r, 900))
-    setSalvando(false)
-    setSalvo(true)
-    setTimeout(() => setSalvo(false), 3000)
+  useEffect(() => {
+    if (!sucesso) return
+    const t = setTimeout(() => setSucesso(''), 4000)
+    return () => clearTimeout(t)
+  }, [sucesso])
+
+  // ── Municipio ─────────────────────────────────────────────
+  const [municipio, setMunicipio] = useState<Record<string, string>>({})
+  const [salvandoMun, setSalvandoMun] = useState(false)
+  const [municipioId, setMunicipioId] = useState('')
+
+  const carregarMunicipio = useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase.from('municipios').select('*').single()
+    if (data) {
+      setMunicipioId(data.id)
+      setMunicipio({
+        nome:           data.nome ?? '',
+        estado:         data.estado ?? '',
+        populacao:      data.populacao?.toString() ?? '',
+        prefeito:       data.prefeito ?? '',
+        site:           data.site ?? '',
+        email_contato:  data.email_contato ?? '',
+        telefone:       data.telefone ?? '',
+        endereco:       data.endereco ?? '',
+        mandato_inicio: data.mandato_inicio ?? '',
+        mandato_fim:    data.mandato_fim ?? '',
+      })
+    }
+  }, [])
+
+  async function salvarMunicipio() {
+    setSalvandoMun(true)
+    const supabase = createClient()
+    await supabase.from('municipios').update({
+      nome:           municipio.nome,
+      estado:         municipio.estado,
+      populacao:      municipio.populacao ? Number(municipio.populacao) : null,
+      prefeito:       municipio.prefeito || null,
+      site:           municipio.site || null,
+      email_contato:  municipio.email_contato || null,
+      telefone:       municipio.telefone || null,
+      endereco:       municipio.endereco || null,
+      mandato_inicio: municipio.mandato_inicio || null,
+      mandato_fim:    municipio.mandato_fim || null,
+    }).eq('id', municipioId)
+    setSalvandoMun(false)
+    setSucesso('Dados do município salvos!')
   }
 
-  function toggleSecretaria(id: string) {
-    setSecretarias(prev => prev.map(s => s.id === id ? { ...s, ativa: !s.ativa } : s))
+  // ── Secretarias ───────────────────────────────────────────
+  const [secretarias, setSecretarias]         = useState<SecretariaRow[]>([])
+  const [carregandoSec, setCarregandoSec]     = useState(true)
+  const [formSecAberto, setFormSecAberto]     = useState(false)
+  const [secretariaEdit, setSecretariaEdit]   = useState<SecretariaEditavel | undefined>()
+  const [confirmDelSec, setConfirmDelSec]     = useState<string | null>(null)
+
+  const carregarSecretarias = useCallback(async () => {
+    setCarregandoSec(true)
+    const supabase = createClient()
+    const [{ data: secs }, { data: projs }] = await Promise.all([
+      supabase.from('secretarias').select('*').order('nome'),
+      supabase.from('projetos').select('secretaria_id'),
+    ])
+    const contagem: Record<string, number> = {}
+    ;(projs ?? []).forEach((p: any) => { if (p.secretaria_id) contagem[p.secretaria_id] = (contagem[p.secretaria_id] ?? 0) + 1 })
+    setSecretarias((secs ?? []).map((s: any) => ({ ...s, projetos: contagem[s.id] ?? 0 })))
+    setCarregandoSec(false)
+  }, [])
+
+  async function excluirSecretaria(id: string) {
+    const supabase = createClient()
+    await supabase.from('secretarias').delete().eq('id', id)
+    setConfirmDelSec(null)
+    carregarSecretarias()
+    setSucesso('Secretaria excluída.')
   }
 
+  // ── Eixos ─────────────────────────────────────────────────
+  const [eixos, setEixos]                   = useState<EixoRow[]>([])
+  const [carregandoEix, setCarregandoEix]   = useState(true)
+  const [formEixAberto, setFormEixAberto]   = useState(false)
+  const [eixoEdit, setEixoEdit]             = useState<EixoEditavel | undefined>()
+  const [confirmDelEix, setConfirmDelEix]   = useState<string | null>(null)
+
+  const carregarEixos = useCallback(async () => {
+    setCarregandoEix(true)
+    const supabase = createClient()
+    const { data } = await supabase.from('eixos').select('*').order('ordem')
+    setEixos(data ?? [])
+    setCarregandoEix(false)
+  }, [])
+
+  async function excluirEixo(id: string) {
+    const supabase = createClient()
+    await supabase.from('eixos').delete().eq('id', id)
+    setConfirmDelEix(null)
+    carregarEixos()
+    setSucesso('Eixo excluído.')
+  }
+
+  // ── Objetivos ─────────────────────────────────────────────
+  const [objetivos, setObjetivos]             = useState<ObjetivoRow[]>([])
+  const [carregandoObj, setCarregandoObj]     = useState(true)
+  const [formObjAberto, setFormObjAberto]     = useState(false)
+  const [objetivoEdit, setObjetivoEdit]       = useState<ObjetivoEditavel | undefined>()
+  const [confirmDelObj, setConfirmDelObj]     = useState<string | null>(null)
+
+  const carregarObjetivos = useCallback(async () => {
+    setCarregandoObj(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('objetivos')
+      .select('id, nome, descricao, pct_atual, eixo_id, eixos(nome, cor)')
+      .order('eixo_id')
+    setObjetivos((data ?? []).map((o: any) => ({
+      id:        o.id,
+      nome:      o.nome,
+      descricao: o.descricao,
+      eixo_id:   o.eixo_id,
+      eixo_nome: o.eixos?.nome ?? '—',
+      eixo_cor:  o.eixos?.cor  ?? '#ccc',
+      pct_atual: o.pct_atual,
+    })))
+    setCarregandoObj(false)
+  }, [])
+
+  async function excluirObjetivo(id: string) {
+    const supabase = createClient()
+    await supabase.from('objetivos').delete().eq('id', id)
+    setConfirmDelObj(null)
+    carregarObjetivos()
+    setSucesso('Objetivo excluído.')
+  }
+
+  // ── Usuários ──────────────────────────────────────────────
+  const [usuarios, setUsuarios]           = useState<UsuarioRow[]>([])
+  const [carregandoUsr, setCarregandoUsr] = useState(true)
+  const [convidando, setConvidando]       = useState(false)
+  const [emailConvite, setEmailConvite]   = useState('')
+  const [nomeConvite, setNomeConvite]     = useState('')
+  const [perfilConvite, setPerfilConvite] = useState<'admin' | 'gestor' | 'visualizador'>('gestor')
+  const [secConvite, setSecConvite]       = useState('')
+  const [erroConvite, setErroConvite]     = useState('')
+
+  const carregarUsuarios = useCallback(async () => {
+    setCarregandoUsr(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('usuarios')
+      .select('id, nome, cargo, perfil, ativo, secretaria_id, secretarias(nome)')
+      .order('nome')
+    setUsuarios((data ?? []).map((u: any) => ({
+      id:             u.id,
+      nome:           u.nome,
+      cargo:          u.cargo,
+      perfil:         u.perfil,
+      ativo:          u.ativo,
+      secretaria_nome: u.secretarias?.nome ?? null,
+    })))
+    setCarregandoUsr(false)
+  }, [])
+
+  async function convidarUsuario(e: React.FormEvent) {
+    e.preventDefault()
+    if (!emailConvite.trim() || !nomeConvite.trim()) {
+      setErroConvite('E-mail e nome são obrigatórios.')
+      return
+    }
+    setConvidando(true)
+    setErroConvite('')
+    try {
+      const res = await fetch('/api/convite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:        emailConvite.trim(),
+          nome:         nomeConvite.trim(),
+          perfil:       perfilConvite,
+          secretaria_id: perfilConvite === 'gestor' ? secConvite || null : null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.erro ?? 'Erro ao convidar usuário')
+      setEmailConvite('')
+      setNomeConvite('')
+      setPerfilConvite('gestor')
+      setSecConvite('')
+      carregarUsuarios()
+      setSucesso(`Convite enviado para ${emailConvite}!`)
+    } catch (err: any) {
+      setErroConvite(err.message)
+    } finally {
+      setConvidando(false)
+    }
+  }
+
+  async function toggleUsuario(id: string, ativo: boolean) {
+    const supabase = createClient()
+    await supabase.from('usuarios').update({ ativo }).eq('id', id)
+    carregarUsuarios()
+  }
+
+  // ── Carrega ao trocar de aba ─────────────────────────────
+  useEffect(() => {
+    if (aba === 'municipio')   carregarMunicipio()
+    if (aba === 'secretarias') carregarSecretarias()
+    if (aba === 'eixos')       carregarEixos()
+    if (aba === 'objetivos')  { carregarObjetivos(); carregarEixos() }
+    if (aba === 'usuarios')   { carregarUsuarios();  carregarSecretarias() }
+  }, [aba, carregarMunicipio, carregarSecretarias, carregarEixos, carregarObjetivos, carregarUsuarios])
+
+  // ── Render ───────────────────────────────────────────────
   return (
     <div className="flex flex-col flex-1">
-      <Header title="Configurações" subtitle="Personalização do sistema para o seu município" />
+      <Header title="Configurações" subtitle="Gestão do município, secretarias e usuários" />
+
+      {/* Banner de sucesso */}
+      {sucesso && (
+        <div className="mx-8 mt-4 flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-xl px-4 py-3">
+          <CheckCircle2 size={16} className="text-green-500 shrink-0" />{sucesso}
+        </div>
+      )}
 
       {/* Abas */}
-      <div className="bg-white border-b border-gray-100 px-8 flex gap-1">
-        <AbaBtn id="municipio"   label="Município"    icon={Building2}    ativa={aba==='municipio'}   onClick={() => setAba('municipio')}   />
-        <AbaBtn id="secretarias" label="Secretarias"  icon={Layers}       ativa={aba==='secretarias'} onClick={() => setAba('secretarias')} />
-        <AbaBtn id="usuarios"    label="Usuários"     icon={Users}        ativa={aba==='usuarios'}    onClick={() => setAba('usuarios')}    />
-        <AbaBtn id="plano"       label="Plano"        icon={CreditCard}   ativa={aba==='plano'}       onClick={() => setAba('plano')}       />
+      <div className="bg-white border-b border-gray-100 px-8 flex gap-1 mt-2">
+        <AbaBtn id="municipio"   label="Município"   icon={Building2} ativa={aba==='municipio'}   onClick={() => setAba('municipio')}   />
+        <AbaBtn id="secretarias" label="Secretarias" icon={Layers}    ativa={aba==='secretarias'} onClick={() => setAba('secretarias')} />
+        <AbaBtn id="eixos"       label="Eixos"       icon={Compass}   ativa={aba==='eixos'}       onClick={() => setAba('eixos')}       />
+        <AbaBtn id="objetivos"   label="Objetivos"   icon={Target}    ativa={aba==='objetivos'}   onClick={() => setAba('objetivos')}   />
+        <AbaBtn id="usuarios"    label="Usuários"    icon={Users}     ativa={aba==='usuarios'}    onClick={() => setAba('usuarios')}    />
+        <AbaBtn id="plano"       label="Plano"       icon={CreditCard} ativa={aba==='plano'}      onClick={() => setAba('plano')}       />
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto">
@@ -115,70 +298,53 @@ export default function ConfiguracoesPage() {
         {/* ── ABA MUNICÍPIO ── */}
         {aba === 'municipio' && (
           <div className="max-w-2xl space-y-6">
-
-            {/* Identidade */}
             <div className="card space-y-5">
               <h2 className="font-semibold text-atlia-navy flex items-center gap-2">
                 <Building2 size={16} /> Identidade do Município
               </h2>
-
-              {/* Logo */}
-              <div className="flex items-center gap-5">
-                <div className="w-20 h-20 rounded-xl bg-atlia-light border-2 border-dashed border-atlia-navy/30 flex flex-col items-center justify-center cursor-pointer hover:bg-atlia-light/80 transition-colors">
-                  <Building2 size={24} className="text-atlia-navy/40" />
-                  <span className="text-xs text-atlia-muted mt-1">Brasão</span>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Logotipo / Brasão municipal</p>
-                  <p className="text-xs text-atlia-muted mt-0.5">PNG ou SVG, máx. 2 MB</p>
-                  <button className="mt-2 text-xs text-atlia-blue font-medium hover:underline">Carregar imagem</button>
-                </div>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label:'Nome oficial do município', value:'Uberlândia', full:true  },
-                  { label:'Estado (UF)',                value:'MG',         full:false },
-                  { label:'Região',                    value:'Triângulo Mineiro', full:false },
-                  { label:'População estimada',        value:'732.000',    full:false },
-                  { label:'Prefeito(a)',               value:'Administrador', full:true },
-                  { label:'Mandato',                   value:'2025–2028',  full:false },
-                  { label:'CNPJ da Prefeitura',        value:'18.869.867/0001-30', full:false },
-                ].map(f => (
-                  <div key={f.label} className={f.full ? 'col-span-2' : ''}>
-                    <label className="block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5">
-                      {f.label}
-                    </label>
+                {([
+                  { key: 'nome',      label: 'Nome oficial',       full: true,  placeholder: 'Prefeitura Municipal de...' },
+                  { key: 'estado',    label: 'Estado (UF)',         full: false, placeholder: 'MG' },
+                  { key: 'populacao', label: 'População estimada',  full: false, placeholder: '0' },
+                  { key: 'prefeito',  label: 'Prefeito(a)',         full: true,  placeholder: 'Nome completo' },
+                  { key: 'mandato_inicio', label: 'Início do mandato', full: false, type: 'date' },
+                  { key: 'mandato_fim',    label: 'Fim do mandato',    full: false, type: 'date' },
+                ] as const).map(f => (
+                  <div key={f.key} className={f.full ? 'col-span-2' : ''}>
+                    <label className={labelCls}>{f.label}</label>
                     <input
-                      defaultValue={f.value}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-1 focus:ring-atlia-blue/20 transition-all"
+                      type={(f as any).type ?? 'text'}
+                      value={municipio[f.key] ?? ''}
+                      onChange={e => setMunicipio(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      placeholder={(f as any).placeholder}
+                      className={inputCls}
                     />
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Contato */}
             <div className="card space-y-4">
               <h2 className="font-semibold text-atlia-navy flex items-center gap-2">
-                <Phone size={16} /> Contato e Endereço
+                <Phone size={16} /> Contato
               </h2>
               <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label:'Site oficial',   value:'www.uberlandia.mg.gov.br', icon: Globe    },
-                  { label:'E-mail geral',   value:'contato@uberlandia.mg.gov.br', icon: Mail },
-                  { label:'Telefone',       value:'(34) 3239-2000',           icon: Phone    },
-                  { label:'Endereço sede',  value:'Av. Anselmo Alves dos Santos, 600', icon: MapPin },
-                ].map(f => (
-                  <div key={f.label}>
-                    <label className="block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5">
-                      {f.label}
-                    </label>
+                {([
+                  { key: 'site',          label: 'Site oficial',    icon: Globe,  placeholder: 'www.municipio.mg.gov.br' },
+                  { key: 'email_contato', label: 'E-mail geral',    icon: Mail,   placeholder: 'contato@municipio.mg.gov.br' },
+                  { key: 'telefone',      label: 'Telefone',        icon: Phone,  placeholder: '(00) 0000-0000' },
+                  { key: 'endereco',      label: 'Endereço sede',   icon: Globe,  placeholder: 'Rua, número, bairro' },
+                ] as const).map(f => (
+                  <div key={f.key}>
+                    <label className={labelCls}>{f.label}</label>
                     <div className="relative">
-                      <f.icon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-atlia-muted" />
+                      <f.icon size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-atlia-muted" />
                       <input
-                        defaultValue={f.value}
-                        className="w-full border border-gray-200 rounded-lg pl-8 pr-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-1 focus:ring-atlia-blue/20 transition-all"
+                        value={municipio[f.key] ?? ''}
+                        onChange={e => setMunicipio(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        className={inputCls + ' pl-8'}
                       />
                     </div>
                   </div>
@@ -186,39 +352,10 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
 
-            {/* Período do plano de governo */}
-            <div className="card space-y-4">
-              <h2 className="font-semibold text-atlia-navy flex items-center gap-2">
-                <Calendar size={16} /> Plano de Governo
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label:'Início do mandato',     value:'01/01/2025' },
-                  { label:'Fim do mandato',         value:'31/12/2028' },
-                  { label:'Nome do plano',          value:'Plano de Governo 2025–2028' },
-                  { label:'Ano base dos indicadores', value:'2024'    },
-                ].map(f => (
-                  <div key={f.label}>
-                    <label className="block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5">
-                      {f.label}
-                    </label>
-                    <input
-                      defaultValue={f.value}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-1 focus:ring-atlia-blue/20 transition-all"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="flex justify-end">
-              <button onClick={handleSalvar}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all
-                  ${salvo
-                    ? 'bg-atlia-green text-white'
-                    : 'bg-atlia-navy text-white hover:bg-atlia-blue'
-                  }`}>
-                {salvo ? <><CheckCircle2 size={15} /> Salvo!</> : salvando ? 'Salvando…' : <><Save size={15} /> Salvar alterações</>}
+              <button onClick={salvarMunicipio} disabled={salvandoMun}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-atlia-navy text-white hover:bg-atlia-blue transition-colors disabled:opacity-70">
+                {salvandoMun ? <><Loader2 size={15} className="animate-spin" />Salvando…</> : <><Save size={15} />Salvar alterações</>}
               </button>
             </div>
           </div>
@@ -228,8 +365,11 @@ export default function ConfiguracoesPage() {
         {aba === 'secretarias' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-atlia-muted">{secretarias.filter(s=>s.ativa).length} secretarias ativas · {secretarias.filter(s=>!s.ativa).length} inativas</p>
-              <button className="btn-primary flex items-center gap-2">
+              <p className="text-sm text-atlia-muted">
+                {secretarias.filter(s => s.ativa).length} ativas · {secretarias.filter(s => !s.ativa).length} inativas
+              </p>
+              <button onClick={() => { setSecretariaEdit(undefined); setFormSecAberto(true) }}
+                className="btn-primary flex items-center gap-2">
                 <Plus size={15} /> Nova Secretaria
               </button>
             </div>
@@ -246,39 +386,49 @@ export default function ConfiguracoesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {secretarias.map(s => (
+                  {carregandoSec ? (
+                    <tr><td colSpan={5} className="py-12 text-center text-atlia-muted">
+                      <Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…
+                    </td></tr>
+                  ) : secretarias.map(s => (
                     <tr key={s.id} className={`hover:bg-atlia-gray/40 transition-colors ${!s.ativa ? 'opacity-50' : ''}`}>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.cor }} />
-                          <span className="font-medium text-gray-800">{s.nome}</span>
+                          <div>
+                            <p className="font-medium text-gray-800">{s.nome}</p>
+                            {s.sigla && <p className="text-xs text-atlia-muted">{s.sigla}</p>}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600">{s.responsavel}</td>
+                      <td className="px-4 py-3.5 text-gray-600">{s.responsavel ?? '—'}</td>
+                      <td className="px-4 py-3.5 text-center font-semibold text-atlia-navy">{s.projetos}</td>
                       <td className="px-4 py-3.5 text-center">
-                        <span className="text-sm font-semibold text-atlia-navy">{s.projetos}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <button
-                          onClick={() => toggleSecretaria(s.id)}
-                          className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors
-                            ${s.ativa
-                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                            }`}
-                        >
+                        <span className={`text-xs px-3 py-1 rounded-full font-semibold ${s.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {s.ativa ? 'Ativa' : 'Inativa'}
-                        </button>
+                        </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="flex items-center justify-center gap-2">
-                          <button className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
-                            <Pencil size={14} />
-                          </button>
-                          <button className="p-1.5 rounded-lg hover:bg-red-50 text-atlia-muted hover:text-atlia-red transition-colors">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                        {confirmDelSec === s.id ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-xs text-red-600">Confirmar?</span>
+                            <button onClick={() => excluirSecretaria(s.id)} className="text-xs text-red-600 font-semibold hover:underline">Sim</button>
+                            <button onClick={() => setConfirmDelSec(null)} className="text-xs text-gray-500 hover:underline">Não</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => {
+                              setSecretariaEdit({ id: s.id, nome: s.nome, sigla: s.sigla ?? '', responsavel: s.responsavel ?? '', cor: s.cor, ativa: s.ativa })
+                              setFormSecAberto(true)
+                            }} className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => setConfirmDelSec(s.id)}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-atlia-muted hover:text-atlia-red transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -286,41 +436,196 @@ export default function ConfiguracoesPage() {
               </table>
             </div>
 
-            {/* Info */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
               <AlertCircle size={16} className="text-atlia-blue shrink-0 mt-0.5" />
-              <p className="text-sm text-blue-800">
-                Secretarias inativas não aparecem nos filtros e relatórios, mas os projetos vinculados são preservados.
-              </p>
+              <p className="text-sm text-blue-800">Secretarias inativas não aparecem nos filtros, mas os projetos vinculados são preservados.</p>
             </div>
+          </div>
+        )}
+
+        {/* ── ABA EIXOS ── */}
+        {aba === 'eixos' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-atlia-muted">{eixos.length} eixo(s) estratégico(s)</p>
+              <button onClick={() => { setEixoEdit(undefined); setFormEixAberto(true) }}
+                className="btn-primary flex items-center gap-2">
+                <Plus size={15} /> Novo Eixo
+              </button>
+            </div>
+
+            {carregandoEix ? (
+              <div className="py-12 text-center text-atlia-muted"><Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {eixos.map(ex => (
+                  <div key={ex.id} className="card border-l-4 hover:shadow-md transition-shadow"
+                    style={{ borderLeftColor: ex.cor }}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ex.cor }} />
+                          <span className="text-xs text-atlia-muted font-medium">Eixo {ex.ordem}</span>
+                        </div>
+                        <p className="font-semibold text-atlia-navy">{ex.nome}</p>
+                        {ex.descricao && <p className="text-xs text-atlia-muted mt-1 line-clamp-2">{ex.descricao}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 ml-3">
+                        {confirmDelEix === ex.id ? (
+                          <>
+                            <button onClick={() => excluirEixo(ex.id)} className="text-xs text-red-600 font-semibold hover:underline px-1">Sim</button>
+                            <button onClick={() => setConfirmDelEix(null)} className="text-xs text-gray-500 hover:underline px-1">Não</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => {
+                              setEixoEdit({ id: ex.id, nome: ex.nome, descricao: ex.descricao ?? '', cor: ex.cor, ordem: ex.ordem })
+                              setFormEixAberto(true)
+                            }} className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => setConfirmDelEix(ex.id)}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-atlia-muted hover:text-atlia-red transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ABA OBJETIVOS ── */}
+        {aba === 'objetivos' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-atlia-muted">{objetivos.length} objetivo(s) estratégico(s)</p>
+              <button onClick={() => { setObjetivoEdit(undefined); setFormObjAberto(true) }}
+                className="btn-primary flex items-center gap-2">
+                <Plus size={15} /> Novo Objetivo
+              </button>
+            </div>
+
+            {carregandoObj ? (
+              <div className="py-12 text-center text-atlia-muted"><Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…</div>
+            ) : (
+              <div className="card p-0 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-atlia-gray border-b border-gray-100">
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Objetivo</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Eixo</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-28">Progresso</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {objetivos.map(ob => (
+                      <tr key={ob.id} className="hover:bg-atlia-gray/40 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <p className="font-medium text-gray-800">{ob.nome}</p>
+                          {ob.descricao && <p className="text-xs text-atlia-muted mt-0.5 line-clamp-1">{ob.descricao}</p>}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ob.eixo_cor }} />
+                            <span className="text-gray-600 text-xs">{ob.eixo_nome}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          <span className={`text-sm font-bold ${ob.pct_atual >= 70 ? 'text-atlia-green' : ob.pct_atual >= 40 ? 'text-yellow-600' : 'text-atlia-red'}`}>
+                            {ob.pct_atual}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          {confirmDelObj === ob.id ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-xs text-red-600">Confirmar?</span>
+                              <button onClick={() => excluirObjetivo(ob.id)} className="text-xs text-red-600 font-semibold hover:underline">Sim</button>
+                              <button onClick={() => setConfirmDelObj(null)} className="text-xs text-gray-500 hover:underline">Não</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => {
+                                setObjetivoEdit({ id: ob.id, nome: ob.nome, descricao: ob.descricao ?? '', eixo_id: ob.eixo_id, pct_atual: ob.pct_atual })
+                                setFormObjAberto(true)
+                              }} className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
+                                <Pencil size={14} />
+                              </button>
+                              <button onClick={() => setConfirmDelObj(ob.id)}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-atlia-muted hover:text-atlia-red transition-colors">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
         {/* ── ABA USUÁRIOS ── */}
         {aba === 'usuarios' && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-atlia-muted">{usuarios.filter(u=>u.ativo).length} usuários ativos</p>
-              <button className="btn-primary flex items-center gap-2">
-                <Plus size={15} /> Convidar Usuário
-              </button>
-            </div>
+          <div className="space-y-6">
 
-            {/* Legenda de perfis */}
-            <div className="card py-3 flex items-center gap-6 flex-wrap">
-              <span className="text-xs font-semibold text-atlia-muted uppercase tracking-wider">Perfis de acesso:</span>
-              {([
-                { key: 'admin',        label: 'Administrador', cor: 'bg-atlia-navy text-white',  desc: '— acesso total'           },
-                { key: 'gestor',       label: 'Gestor',        cor: 'bg-blue-100 text-blue-800', desc: '— editar sua secretaria'  },
-                { key: 'visualizador', label: 'Visualizador',  cor: 'bg-gray-100 text-gray-600', desc: '— somente leitura'        },
-              ] as const).map(p => (
-                <div key={p.key} className="flex items-center gap-2">
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${p.cor}`}>{p.label}</span>
-                  <span className="text-xs text-atlia-muted">{p.desc}</span>
+            {/* Formulário de convite */}
+            <div className="card space-y-4">
+              <h2 className="font-semibold text-atlia-navy flex items-center gap-2">
+                <Plus size={16} /> Convidar novo usuário
+              </h2>
+              <form onSubmit={convidarUsuario}>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className={labelCls}>E-mail <span className="text-red-500">*</span></label>
+                    <input type="email" value={emailConvite} onChange={e => setEmailConvite(e.target.value)}
+                      placeholder="usuario@municipio.gov.br" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Nome completo <span className="text-red-500">*</span></label>
+                    <input type="text" value={nomeConvite} onChange={e => setNomeConvite(e.target.value)}
+                      placeholder="Nome Sobrenome" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Perfil de acesso</label>
+                    <select value={perfilConvite} onChange={e => setPerfilConvite(e.target.value as any)} className={inputCls + ' bg-white'}>
+                      <option value="admin">Administrador — acesso total</option>
+                      <option value="gestor">Gestor — edita sua secretaria</option>
+                      <option value="visualizador">Visualizador — somente leitura</option>
+                    </select>
+                  </div>
+                  {perfilConvite === 'gestor' && (
+                    <div>
+                      <label className={labelCls}>Secretaria</label>
+                      <select value={secConvite} onChange={e => setSecConvite(e.target.value)} className={inputCls + ' bg-white'}>
+                        <option value="">— Selecionar —</option>
+                        {secretarias.filter(s => s.ativa).map(s => (
+                          <option key={s.id} value={s.id}>{s.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-              ))}
+                {erroConvite && (
+                  <div className="flex items-center gap-2 bg-red-50 text-red-600 text-sm rounded-lg px-3 py-2 mb-3">
+                    <XCircle size={14} className="shrink-0" />{erroConvite}
+                  </div>
+                )}
+                <button type="submit" disabled={convidando}
+                  className="flex items-center gap-2 px-5 py-2 bg-atlia-navy text-white text-sm font-semibold rounded-lg hover:bg-atlia-blue transition-colors disabled:opacity-70">
+                  {convidando ? <><Loader2 size={14} className="animate-spin" />Enviando…</> : <><Mail size={14} />Enviar convite</>}
+                </button>
+              </form>
             </div>
 
+            {/* Lista */}
             <div className="card p-0 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
@@ -328,14 +633,16 @@ export default function ConfiguracoesPage() {
                     <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Usuário</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Secretaria</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Perfil</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Último acesso</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Status</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {usuarios.map(u => {
-                    const perfil = perfilInfo[u.perfil]
+                  {carregandoUsr ? (
+                    <tr><td colSpan={4} className="py-12 text-center text-atlia-muted">
+                      <Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…
+                    </td></tr>
+                  ) : usuarios.map(u => {
+                    const pi = perfilInfo[u.perfil]
                     const iniciais = u.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
                     return (
                       <tr key={u.id} className={`hover:bg-atlia-gray/40 transition-colors ${!u.ativo ? 'opacity-50' : ''}`}>
@@ -346,32 +653,19 @@ export default function ConfiguracoesPage() {
                             </div>
                             <div>
                               <p className="font-medium text-gray-800">{u.nome}</p>
-                              <p className="text-xs text-atlia-muted">{u.email}</p>
+                              {u.cargo && <p className="text-xs text-atlia-muted">{u.cargo}</p>}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-gray-600">{u.secretaria}</td>
+                        <td className="px-4 py-3.5 text-gray-600 text-xs">{u.secretaria_nome ?? '—'}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${perfil.cor}`}>
-                            {perfil.label}
-                          </span>
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${pi.cor}`}>{pi.label}</span>
                         </td>
-                        <td className="px-4 py-3.5 text-center text-xs text-atlia-muted">{u.ultimoAcesso}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold
-                            ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          <button onClick={() => toggleUsuario(u.id, !u.ativo)}
+                            className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${u.ativo ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                             {u.ativo ? 'Ativo' : 'Inativo'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center justify-center gap-2">
-                            <button className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
-                              <Pencil size={14} />
-                            </button>
-                            <button className="p-1.5 rounded-lg hover:bg-red-50 text-atlia-muted hover:text-atlia-red transition-colors">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                          </button>
                         </td>
                       </tr>
                     )
@@ -385,8 +679,6 @@ export default function ConfiguracoesPage() {
         {/* ── ABA PLANO ── */}
         {aba === 'plano' && (
           <div className="max-w-3xl space-y-6">
-
-            {/* Plano atual */}
             <div className="card border-2 border-atlia-navy">
               <div className="flex items-start justify-between">
                 <div>
@@ -399,7 +691,7 @@ export default function ConfiguracoesPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-bold text-atlia-navy">R$ 4.500</p>
-                  <p className="text-sm text-atlia-muted">/mês · cobrado mensalmente</p>
+                  <p className="text-sm text-atlia-muted">/mês</p>
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
@@ -410,21 +702,10 @@ export default function ConfiguracoesPage() {
                 <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold">Ativo</span>
               </div>
             </div>
-
-            {/* Recursos do plano */}
             <div className="card">
               <h3 className="font-semibold text-atlia-navy text-sm mb-4">Recursos incluídos</h3>
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  'Projetos ilimitados',
-                  'Indicadores ilimitados',
-                  'Usuários ilimitados',
-                  'Relatórios em PDF',
-                  'Mapa estratégico',
-                  'Drill-down de projetos',
-                  'Suporte prioritário',
-                  'Atualizações automáticas',
-                ].map(r => (
+                {['Projetos ilimitados','Indicadores ilimitados','Usuários ilimitados','Relatórios em PDF','Mapa estratégico','Drill-down de projetos','Suporte prioritário','Atualizações automáticas'].map(r => (
                   <div key={r} className="flex items-center gap-2.5">
                     <CheckCircle2 size={14} className="text-atlia-green shrink-0" />
                     <span className="text-sm text-gray-700">{r}</span>
@@ -432,61 +713,37 @@ export default function ConfiguracoesPage() {
                 ))}
               </div>
             </div>
-
-            {/* Outros planos */}
-            <div>
-              <h3 className="font-semibold text-atlia-navy text-sm mb-3">Planos disponíveis</h3>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { nome:'Atlia Starter', preco:'R$ 2.500', pop:'Até 30 mil hab.',  destaque:false },
-                  { nome:'Atlia Plus',    preco:'R$ 3.500', pop:'Até 100 mil hab.', destaque:false },
-                  { nome:'Atlia Pro',     preco:'R$ 4.500', pop:'Acima 100 mil',    destaque:true  },
-                ].map(p => (
-                  <div key={p.nome} className={`rounded-xl border-2 p-4 ${p.destaque ? 'border-atlia-navy bg-atlia-light/50' : 'border-gray-200'}`}>
-                    <p className="font-bold text-atlia-navy text-sm">{p.nome}</p>
-                    <p className="text-2xl font-bold text-atlia-navy mt-1">{p.preco}<span className="text-sm font-normal text-atlia-muted">/mês</span></p>
-                    <p className="text-xs text-atlia-muted mt-1">{p.pop}</p>
-                    {p.destaque
-                      ? <span className="mt-3 block text-center text-xs bg-atlia-navy text-white py-1.5 rounded-lg font-semibold">Plano atual</span>
-                      : <button className="mt-3 w-full text-xs border border-gray-200 text-gray-600 py-1.5 rounded-lg font-semibold hover:border-atlia-navy hover:text-atlia-navy transition-colors">Mudar plano</button>
-                    }
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Dados de cobrança */}
-            <div className="card space-y-4">
-              <h3 className="font-semibold text-atlia-navy text-sm flex items-center gap-2">
-                <CreditCard size={15} /> Dados de Cobrança
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label:'Razão social',   value:'Prefeitura Municipal de Uberlândia' },
-                  { label:'CNPJ',           value:'18.869.867/0001-30'                 },
-                  { label:'E-mail de nota', value:'financeiro@uberlandia.mg.gov.br'    },
-                  { label:'Método',         value:'Boleto bancário'                    },
-                ].map(f => (
-                  <div key={f.label}>
-                    <label className="block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5">{f.label}</label>
-                    <input defaultValue={f.value}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue transition-all" />
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-end">
-                <button onClick={handleSalvar}
-                  className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all
-                    ${salvo ? 'bg-atlia-green text-white' : 'bg-atlia-navy text-white hover:bg-atlia-blue'}`}>
-                  {salvo ? <><CheckCircle2 size={15} /> Salvo!</> : salvando ? 'Salvando…' : <><Save size={15} /> Salvar</>}
-                </button>
-              </div>
-            </div>
-
           </div>
         )}
 
       </div>
+
+      {/* Slide panels */}
+      <SlidePanel aberto={formSecAberto} titulo={secretariaEdit?.id ? 'Editar Secretaria' : 'Nova Secretaria'} onFechar={() => setFormSecAberto(false)}>
+        <SecretariaForm
+          secretariaInicial={secretariaEdit}
+          onSuccess={msg => { setFormSecAberto(false); setSucesso(msg); carregarSecretarias() }}
+          onCancelar={() => setFormSecAberto(false)}
+        />
+      </SlidePanel>
+
+      <SlidePanel aberto={formEixAberto} titulo={eixoEdit?.id ? 'Editar Eixo' : 'Novo Eixo'} onFechar={() => setFormEixAberto(false)}>
+        <EixoForm
+          eixoInicial={eixoEdit}
+          ordemSugerida={eixos.length + 1}
+          onSuccess={msg => { setFormEixAberto(false); setSucesso(msg); carregarEixos() }}
+          onCancelar={() => setFormEixAberto(false)}
+        />
+      </SlidePanel>
+
+      <SlidePanel aberto={formObjAberto} titulo={objetivoEdit?.id ? 'Editar Objetivo' : 'Novo Objetivo'} onFechar={() => setFormObjAberto(false)}>
+        <ObjetivoForm
+          objetivoInicial={objetivoEdit}
+          onSuccess={msg => { setFormObjAberto(false); setSucesso(msg); carregarObjetivos() }}
+          onCancelar={() => setFormObjAberto(false)}
+        />
+      </SlidePanel>
+
     </div>
   )
 }

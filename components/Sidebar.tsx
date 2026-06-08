@@ -17,7 +17,7 @@ const nav = [
   { href: '/dashboard/relatorios',         label: 'Relatórios',         icon: FileText        },
 ]
 
-export default function Sidebar({ municipio }: { municipio: string }) {
+export default function Sidebar({ municipio, perfil = 'visualizador' }: { municipio: string; perfil?: string }) {
   const pathname  = usePathname()
   const router    = useRouter()
 
@@ -74,10 +74,12 @@ export default function Sidebar({ municipio }: { municipio: string }) {
 
       {/* Rodapé */}
       <div className="px-3 py-4 border-t border-white/10 space-y-1">
-        <Link href="/dashboard/configuracoes" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-white/8 hover:text-white transition-all">
-          <Settings size={18} />
-          <span>Configurações</span>
-        </Link>
+        {perfil === 'admin' && (
+          <Link href="/dashboard/configuracoes" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-white/8 hover:text-white transition-all">
+            <Settings size={18} />
+            <span>Configurações</span>
+          </Link>
+        )}
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-all"

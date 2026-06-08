@@ -16,6 +16,8 @@ export interface IndicadorEditavel {
 
 interface Props {
   indicadorInicial?: IndicadorEditavel
+  /** Se informado, bloqueia o campo secretaria (para gestores) */
+  secretariaInicial?: string
   onSuccess: (mensagem: string) => void
   onCancelar: () => void
 }
@@ -25,12 +27,12 @@ const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5'
 
 const unidadesComuns = ['%', 'un', 'km', 'R$', 'min', 'h', 'pts', 'empr', 'lts', 'hab']
 
-export default function IndicadorForm({ indicadorInicial, onSuccess, onCancelar }: Props) {
+export default function IndicadorForm({ indicadorInicial, secretariaInicial, onSuccess, onCancelar }: Props) {
   const editando = !!indicadorInicial?.id
   const anoAtual = new Date().getFullYear()
 
   const [nome,           setNome]           = useState(indicadorInicial?.nome ?? '')
-  const [secretariaId,   setSecretariaId]   = useState(indicadorInicial?.secretaria_id ?? '')
+  const [secretariaId,   setSecretariaId]   = useState(indicadorInicial?.secretaria_id ?? secretariaInicial ?? '')
   const [unidade,        setUnidade]        = useState(indicadorInicial?.unidade ?? '%')
   const [unidadeCustom,  setUnidadeCustom]  = useState('')
   const [meta,           setMeta]           = useState(indicadorInicial?.meta ?? 0)
@@ -137,14 +139,17 @@ export default function IndicadorForm({ indicadorInicial, onSuccess, onCancelar 
             <select
               value={secretariaId}
               onChange={e => setSecretariaId(e.target.value)}
-              disabled={carregandoOpts}
-              className={inputCls + ' bg-white'}
+              disabled={carregandoOpts || !!secretariaInicial}
+              className={inputCls + ' bg-white' + (secretariaInicial ? ' opacity-70 cursor-not-allowed' : '')}
             >
               <option value="">— Selecionar secretaria —</option>
               {secretarias.map(s => (
                 <option key={s.id} value={s.id}>{s.nome}</option>
               ))}
             </select>
+            {secretariaInicial && (
+              <p className="text-xs text-atlia-muted mt-1">Fixado pela sua secretaria.</p>
+            )}
           </div>
         </div>
       </div>

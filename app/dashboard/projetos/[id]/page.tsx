@@ -8,6 +8,7 @@ import SlidePanel from '@/components/ui/SlidePanel'
 import ProjetoForm, { type ProjetoEditavel } from '@/components/forms/ProjetoForm'
 import { formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import {
   ArrowLeft, CheckCircle2, Circle, Clock, AlertTriangle,
   Tag, Target, Layers, FileText, Building2, Loader2, Pencil, Trash2,
@@ -91,6 +92,14 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
   const [confirmDelete, setConfirmDelete]   = useState(false)
   const [deletando, setDeletando]           = useState(false)
   const [sucesso, setSucesso]               = useState('')
+  const usuario = useCurrentUser()
+
+  // Um usuário pode editar se for admin, ou se for gestor da mesma secretaria do projeto
+  const podeEditar = !usuario.carregando && projeto && (
+    usuario.perfil === 'admin' ||
+    (usuario.perfil === 'gestor' && projeto.secretaria_id === usuario.secretaria_id)
+  )
+  const podeExcluir = !usuario.carregando && usuario.perfil === 'admin'
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -223,39 +232,43 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
             <FileText size={15} />
             Gerar PDF
           </button>
-          <button
-            onClick={() => setEditAberto(true)}
-            className="flex items-center gap-2 border border-atlia-blue text-atlia-blue font-medium py-2 px-3.5 rounded-lg hover:bg-atlia-blue/5 transition-colors text-sm"
-          >
-            <Pencil size={14} />
-            Editar
-          </button>
-          {!confirmDelete ? (
+          {podeEditar && (
             <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-2 border border-gray-200 text-gray-500 font-medium py-2 px-3.5 rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-sm"
+              onClick={() => setEditAberto(true)}
+              className="flex items-center gap-2 border border-atlia-blue text-atlia-blue font-medium py-2 px-3.5 rounded-lg hover:bg-atlia-blue/5 transition-colors text-sm"
             >
-              <Trash2 size={14} />
-              Excluir
+              <Pencil size={14} />
+              Editar
             </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-red-600 font-medium">Tem certeza?</span>
+          )}
+          {podeExcluir && (
+            !confirmDelete ? (
               <button
-                onClick={handleDelete}
-                disabled={deletando}
-                className="flex items-center gap-1.5 bg-red-600 text-white font-medium py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-xs disabled:opacity-70"
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-2 border border-gray-200 text-gray-500 font-medium py-2 px-3.5 rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-sm"
               >
-                {deletando ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                Excluir definitivamente
+                <Trash2 size={14} />
+                Excluir
               </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="text-xs text-gray-500 hover:text-gray-700 py-2 px-2"
-              >
-                Cancelar
-              </button>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-600 font-medium">Tem certeza?</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={deletando}
+                  className="flex items-center gap-1.5 bg-red-600 text-white font-medium py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-xs disabled:opacity-70"
+                >
+                  {deletando ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  Excluir definitivamente
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-xs text-gray-500 hover:text-gray-700 py-2 px-2"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>

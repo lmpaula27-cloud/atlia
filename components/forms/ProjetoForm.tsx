@@ -23,6 +23,8 @@ export interface ProjetoEditavel {
 
 interface Props {
   projetoInicial?: ProjetoEditavel
+  /** Se informado, bloqueia o campo secretaria (para gestores) */
+  secretariaInicial?: string
   onSuccess: (mensagem: string) => void
   onCancelar: () => void
 }
@@ -51,13 +53,13 @@ const tipoGanhoOpts = [
 const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-atlia-blue focus:ring-2 focus:ring-atlia-blue/10 transition-all placeholder-gray-400'
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5'
 
-export default function ProjetoForm({ projetoInicial, onSuccess, onCancelar }: Props) {
+export default function ProjetoForm({ projetoInicial, secretariaInicial, onSuccess, onCancelar }: Props) {
   const editando = !!projetoInicial?.id
 
   // ── Estado do formulário ─────────────────────────────────────
   const [nome,         setNome]         = useState(projetoInicial?.nome ?? '')
   const [descricao,    setDescricao]    = useState(projetoInicial?.descricao ?? '')
-  const [secretariaId, setSecretariaId] = useState(projetoInicial?.secretaria_id ?? '')
+  const [secretariaId, setSecretariaId] = useState(projetoInicial?.secretaria_id ?? secretariaInicial ?? '')
   const [objetivoId,   setObjetivoId]   = useState(projetoInicial?.objetivo_id ?? '')
   const [status,       setStatus]       = useState(projetoInicial?.status ?? 'nao_iniciado')
   const [prioridade,   setPrioridade]   = useState(projetoInicial?.prioridade ?? 'media')
@@ -213,14 +215,17 @@ export default function ProjetoForm({ projetoInicial, onSuccess, onCancelar }: P
             <select
               value={secretariaId}
               onChange={e => setSecretariaId(e.target.value)}
-              disabled={carregandoOpts}
-              className={inputCls + ' bg-white'}
+              disabled={carregandoOpts || !!secretariaInicial}
+              className={inputCls + ' bg-white' + (secretariaInicial ? ' opacity-70 cursor-not-allowed' : '')}
             >
               <option value="">— Selecionar secretaria —</option>
               {secretarias.map(s => (
                 <option key={s.id} value={s.id}>{s.nome}</option>
               ))}
             </select>
+            {secretariaInicial && (
+              <p className="text-xs text-atlia-muted mt-1">Fixado pela sua secretaria.</p>
+            )}
           </div>
           <div>
             <label className={labelCls}>Objetivo estratégico <span className="text-xs text-gray-400 font-normal">(opcional)</span></label>

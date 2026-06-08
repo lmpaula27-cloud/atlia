@@ -44,9 +44,23 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)
     }
+
+    // Protege /configuracoes — somente admin
+    if (user && request.nextUrl.pathname.startsWith('/dashboard/configuracoes')) {
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('perfil')
+        .eq('id', user.id)
+        .single()
+
+      if (usuario?.perfil !== 'admin') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+      }
+    }
   } catch {
     // Se o Supabase falhar, não bloqueia o acesso
-    // O login/dashboard tratam a sessão individualmente
   }
 
   return supabaseResponse
