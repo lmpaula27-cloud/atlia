@@ -1,8 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/Header'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ProgressBar from '@/components/ui/ProgressBar'
+import SlidePanel from '@/components/ui/SlidePanel'
+import IndicadorForm from '@/components/forms/IndicadorForm'
 import { Plus, TrendingUp, TrendingDown, Filter, BarChart3, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
@@ -50,31 +52,39 @@ export default function IndicadoresPage() {
   const [indicadores, setIndicadores] = useState<IndicadorUI[]>([])
   const [carregando, setCarregando]   = useState(true)
   const [filtroSec, setFiltroSec]     = useState('Todas')
+  const [formAberto, setFormAberto]   = useState(false)
+  const [sucesso, setSucesso]         = useState('')
+
+  const carregar = useCallback(async () => {
+    setCarregando(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('indicadores')
+      .select('id, nome, unidade, meta, valor_atual, menor_melhor, secretarias(nome)')
+      .order('created_at')
+
+    const mapped: IndicadorUI[] = (data ?? []).map((ind: any) => ({
+      id:          ind.id,
+      nome:        ind.nome,
+      secretaria:  nomeCurto(ind.secretarias?.nome ?? ''),
+      unidade:     ind.unidade,
+      meta:        Number(ind.meta),
+      atual:       Number(ind.valor_atual),
+      menorMelhor: ind.menor_melhor,
+      status:      calcStatus(Number(ind.valor_atual), Number(ind.meta), ind.menor_melhor),
+    }))
+
+    setIndicadores(mapped)
+    setCarregando(false)
+  }, [])
+
+  useEffect(() => { carregar() }, [carregar])
 
   useEffect(() => {
-    async function carregar() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('indicadores')
-        .select('id, nome, unidade, meta, valor_atual, menor_melhor, secretarias(nome)')
-        .order('created_at')
-
-      const mapped: IndicadorUI[] = (data ?? []).map((ind: any) => ({
-        id:          ind.id,
-        nome:        ind.nome,
-        secretaria:  nomeCurto(ind.secretarias?.nome ?? ''),
-        unidade:     ind.unidade,
-        meta:        Number(ind.meta),
-        atual:       Number(ind.valor_atual),
-        menorMelhor: ind.menor_melhor,
-        status:      calcStatus(Number(ind.valor_atual), Number(ind.meta), ind.menor_melhor),
-      }))
-
-      setIndicadores(mapped)
-      setCarregando(false)
-    }
-    carregar()
-  }, [])
+    if (!sucesso) return
+    const t = setTimeout(() => setSucesso(''), 4000)
+    return () => clearTimeout(t)
+  }, [sucesso])
 
   const secretariasOpts = ['Todas', ...Array.from(new Set(indicadores.map(i => i.secretaria)))]
 
@@ -100,6 +110,14 @@ export default function IndicadoresPage() {
       <Header title="Indicadores de Desempenho" subtitle="Monitoramento de KPIs estratégicos por secretaria" />
 
       <div className="p-8 space-y-6">
+
+        {/* Banner de sucesso */}
+        {sucesso && (
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-xl px-4 py-3">
+            <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+            {sucesso}
+          </div>
+        )}
 
         {/* Resumo + filtro */}
         <div className="flex items-center gap-4 flex-wrap">
@@ -135,7 +153,10 @@ export default function IndicadoresPage() {
             </select>
           </div>
 
-          <button className="btn-primary flex items-center gap-2">
+          <button
+            onClick={() => setFormAberto(true)}
+            className="btn-primary flex items-center gap-2"
+          >
             <Plus size={15} />
             Novo Indicador
           </button>
@@ -219,6 +240,23 @@ export default function IndicadoresPage() {
         </div>
 
       </div>
+
+      {/* Formulário — slide panel */}
+      <SlidePanel
+        aberto={formAberto}
+        titulo="Novo Indicador"
+        onFechar={() => setFormAberto(false)}
+      >
+        <IndicadorForm
+          onSuccess={(msg) => {
+            setFormAberto(false)
+            setSucesso(msg)
+            carregar()
+          }}
+          onCancelar={() => setFormAberto(false)}
+        />
+      </SlidePanel>
+
     </div>
   )
 }

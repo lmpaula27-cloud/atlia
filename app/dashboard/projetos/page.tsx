@@ -1,15 +1,16 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ProgressBar from '@/components/ui/ProgressBar'
+import SlidePanel from '@/components/ui/SlidePanel'
+import ProjetoForm from '@/components/forms/ProjetoForm'
 import { formatCurrency } from '@/lib/utils'
-import { Search, Plus, Filter, FolderKanban, ChevronRight, Loader2 } from 'lucide-react'
+import { Search, Plus, Filter, FolderKanban, ChevronRight, Loader2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type Prioridade = 'alta' | 'media' | 'baixa'
-type TipoGanho  = 'N/A' | 'Operacional' | 'Financeiro' | 'Econômico'
+type TipoGanho = 'N/A' | 'Operacional' | 'Financeiro' | 'Econômico'
 
 interface ProjetoUI {
   id: string
@@ -17,7 +18,7 @@ interface ProjetoUI {
   secretaria: string
   responsavel: string
   status: string
-  prioridade: Prioridade
+  prioridade: string
   tipoGanho: string
   pct: number
   dataFim: string
@@ -62,40 +63,49 @@ const statusOpts  = ['Todos', 'em_andamento', 'atencao', 'atrasado', 'nao_inicia
 const tiposGanho: TipoGanho[] = ['N/A', 'Operacional', 'Financeiro', 'Econômico']
 
 export default function ProjetosPage() {
-  const [projetos, setProjetos]     = useState<ProjetoUI[]>([])
-  const [carregando, setCarregando] = useState(true)
-  const [busca, setBusca]           = useState('')
-  const [secretaria, setSecretaria] = useState('Todas')
-  const [status, setStatus]         = useState('Todos')
-  const [tipoGanho, setTipoGanho]   = useState<TipoGanho | 'Todos'>('Todos')
+  const [projetos, setProjetos]       = useState<ProjetoUI[]>([])
+  const [carregando, setCarregando]   = useState(true)
+  const [formAberto, setFormAberto]   = useState(false)
+  const [sucesso, setSucesso]         = useState('')
+  const [busca, setBusca]             = useState('')
+  const [secretaria, setSecretaria]   = useState('Todas')
+  const [status, setStatus]           = useState('Todos')
+  const [tipoGanho, setTipoGanho]     = useState<TipoGanho | 'Todos'>('Todos')
 
-  useEffect(() => {
-    async function carregar() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('projetos')
-        .select('id, nome, status, prioridade, tipo_ganho, pct, data_fim, orcamento, executado, secretarias(nome, responsavel)')
-        .order('created_at', { ascending: false })
+  const carregar = useCallback(async () => {
+    setCarregando(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('projetos')
+      .select('id, nome, status, prioridade, tipo_ganho, pct, data_fim, orcamento, executado, secretarias(nome, responsavel)')
+      .order('created_at', { ascending: false })
 
-      const mapped: ProjetoUI[] = (data ?? []).map((p: any) => ({
-        id:          p.id,
-        nome:        p.nome,
-        secretaria:  nomeCurto(p.secretarias?.nome ?? ''),
-        responsavel: p.secretarias?.responsavel ?? '—',
-        status:      p.status,
-        prioridade:  p.prioridade,
-        tipoGanho:   p.tipo_ganho,
-        pct:         p.pct,
-        dataFim:     fmtData(p.data_fim),
-        orcamento:   Number(p.orcamento),
-        executado:   Number(p.executado),
-      }))
+    const mapped: ProjetoUI[] = (data ?? []).map((p: any) => ({
+      id:          p.id,
+      nome:        p.nome,
+      secretaria:  nomeCurto(p.secretarias?.nome ?? ''),
+      responsavel: p.secretarias?.responsavel ?? '—',
+      status:      p.status,
+      prioridade:  p.prioridade,
+      tipoGanho:   p.tipo_ganho,
+      pct:         p.pct,
+      dataFim:     fmtData(p.data_fim),
+      orcamento:   Number(p.orcamento),
+      executado:   Number(p.executado),
+    }))
 
-      setProjetos(mapped)
-      setCarregando(false)
-    }
-    carregar()
+    setProjetos(mapped)
+    setCarregando(false)
   }, [])
+
+  useEffect(() => { carregar() }, [carregar])
+
+  // Auto-oculta o banner de sucesso após 4s
+  useEffect(() => {
+    if (!sucesso) return
+    const t = setTimeout(() => setSucesso(''), 4000)
+    return () => clearTimeout(t)
+  }, [sucesso])
 
   const secretarias = ['Todas', ...Array.from(new Set(projetos.map(p => p.secretaria)))]
 
@@ -118,13 +128,21 @@ export default function ProjetosPage() {
 
       <div className="p-8 space-y-5">
 
+        {/* Banner de sucesso */}
+        {sucesso && (
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-xl px-4 py-3">
+            <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+            {sucesso}
+          </div>
+        )}
+
         {/* Resumo */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: 'Total na carteira',     value: projetos.length,                                                                  color: 'text-atlia-navy'  },
-            { label: 'Em andamento',          value: projetos.filter(p => p.status === 'em_andamento').length,                         color: 'text-atlia-green' },
-            { label: 'Requerem atenção',      value: projetos.filter(p => p.status === 'atencao' || p.status === 'atrasado').length,   color: 'text-atlia-red'   },
-            { label: 'Execução orçamentária', value: carregando ? '—' : `${pctExecucao}%`,                                            color: 'text-atlia-blue'  },
+            { label: 'Total na carteira',     value: projetos.length,                                                                 color: 'text-atlia-navy'  },
+            { label: 'Em andamento',          value: projetos.filter(p => p.status === 'em_andamento').length,                        color: 'text-atlia-green' },
+            { label: 'Requerem atenção',      value: projetos.filter(p => p.status === 'atencao' || p.status === 'atrasado').length,  color: 'text-atlia-red'   },
+            { label: 'Execução orçamentária', value: carregando ? '—' : `${pctExecucao}%`,                                           color: 'text-atlia-blue'  },
           ].map(s => (
             <div key={s.label} className="card py-4 px-5">
               <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -133,7 +151,7 @@ export default function ProjetosPage() {
           ))}
         </div>
 
-        {/* Filtros */}
+        {/* Filtros + botão */}
         <div className="card flex flex-wrap items-center gap-3 py-3">
           <div className="flex items-center gap-2 bg-atlia-gray rounded-lg px-3 py-2 flex-1 min-w-52">
             <Search size={15} className="text-atlia-muted shrink-0" />
@@ -163,7 +181,10 @@ export default function ProjetosPage() {
             <option value="Todos">Tipo de ganho</option>
             {tiposGanho.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <button className="btn-primary flex items-center gap-2 ml-auto">
+          <button
+            onClick={() => setFormAberto(true)}
+            className="btn-primary flex items-center gap-2 ml-auto"
+          >
             <Plus size={15} />
             Novo Projeto
           </button>
@@ -207,10 +228,8 @@ export default function ProjetosPage() {
                         {prioridadeLabel[p.prioridade]}
                       </span>
                       <div>
-                        <Link
-                          href={`/dashboard/projetos/${p.id}`}
-                          className="font-medium text-gray-800 leading-snug hover:text-atlia-blue transition-colors"
-                        >
+                        <Link href={`/dashboard/projetos/${p.id}`}
+                          className="font-medium text-gray-800 leading-snug hover:text-atlia-blue transition-colors">
                           {p.nome}
                         </Link>
                         <p className="text-xs text-atlia-muted mt-0.5">{p.responsavel}</p>
@@ -260,8 +279,23 @@ export default function ProjetosPage() {
             </div>
           )}
         </div>
-
       </div>
+
+      {/* Formulário — slide panel */}
+      <SlidePanel
+        aberto={formAberto}
+        titulo="Novo Projeto"
+        onFechar={() => setFormAberto(false)}
+      >
+        <ProjetoForm
+          onSuccess={(msg) => {
+            setFormAberto(false)
+            setSucesso(msg)
+            carregar()
+          }}
+          onCancelar={() => setFormAberto(false)}
+        />
+      </SlidePanel>
     </div>
   )
 }

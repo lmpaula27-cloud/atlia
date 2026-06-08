@@ -1,13 +1,16 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import ProgressBar from '@/components/ui/ProgressBar'
 import StatusBadge from '@/components/ui/StatusBadge'
+import SlidePanel from '@/components/ui/SlidePanel'
+import ProjetoForm, { type ProjetoEditavel } from '@/components/forms/ProjetoForm'
 import { formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import {
   ArrowLeft, CheckCircle2, Circle, Clock, AlertTriangle,
-  Tag, Target, Layers, FileText, Building2, Loader2,
+  Tag, Target, Layers, FileText, Building2, Loader2, Pencil, Trash2,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -79,34 +82,77 @@ function fmtData(d: string | null | undefined): string {
 
 // ── Página ────────────────────────────────────────────────────
 export default function ProjetoDetalhePage({ params }: { params: { id: string } }) {
-  const [projeto, setProjeto]           = useState<any>(null)
-  const [carregando, setCarregando]     = useState(true)
-  const [naoEncontrado, setNaoEncontrado] = useState(false)
+  const router = useRouter()
 
-  useEffect(() => {
-    async function carregar() {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('projetos')
-        .select(`
-          *,
-          secretarias(nome, sigla, responsavel),
-          objetivos(nome, eixos(nome, cor)),
-          marcos(id, titulo, descricao, data_prevista, data_conclusao, status, pct, ordem),
-          historico_projetos(id, tipo, descricao, created_at)
-        `)
-        .eq('id', params.id)
-        .single()
+  const [projeto, setProjeto]               = useState<any>(null)
+  const [carregando, setCarregando]         = useState(true)
+  const [naoEncontrado, setNaoEncontrado]   = useState(false)
+  const [editAberto, setEditAberto]         = useState(false)
+  const [confirmDelete, setConfirmDelete]   = useState(false)
+  const [deletando, setDeletando]           = useState(false)
+  const [sucesso, setSucesso]               = useState('')
 
-      if (error || !data) {
-        setNaoEncontrado(true)
-      } else {
-        setProjeto(data)
-      }
-      setCarregando(false)
+  const carregar = useCallback(async () => {
+    setCarregando(true)
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('projetos')
+      .select(`
+        *,
+        secretarias(nome, sigla, responsavel),
+        objetivos(nome, eixos(nome, cor)),
+        marcos(id, titulo, descricao, data_prevista, data_conclusao, status, pct, ordem),
+        historico_projetos(id, tipo, descricao, created_at)
+      `)
+      .eq('id', params.id)
+      .single()
+
+    if (error || !data) {
+      setNaoEncontrado(true)
+    } else {
+      setProjeto(data)
     }
-    carregar()
+    setCarregando(false)
   }, [params.id])
+
+  useEffect(() => { carregar() }, [carregar])
+
+  // Auto-oculta sucesso após 4s
+  useEffect(() => {
+    if (!sucesso) return
+    const t = setTimeout(() => setSucesso(''), 4000)
+    return () => clearTimeout(t)
+  }, [sucesso])
+
+  async function handleDelete() {
+    setDeletando(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('projetos').delete().eq('id', params.id)
+    if (error) { setDeletando(false); return }
+    router.push('/dashboard/projetos')
+  }
+
+  // Converte dados do projeto para o formato do form
+  function projetoParaEditavel(): ProjetoEditavel | undefined {
+    if (!projeto) return undefined
+    return {
+      id:            projeto.id,
+      nome:          projeto.nome,
+      descricao:     projeto.descricao ?? '',
+      secretaria_id: projeto.secretaria_id,
+      objetivo_id:   projeto.objetivo_id,
+      status:        projeto.status,
+      prioridade:    projeto.prioridade,
+      tipo_ganho:    projeto.tipo_ganho,
+      pct:           projeto.pct,
+      data_inicio:   projeto.data_inicio,
+      data_fim:      projeto.data_fim,
+      orcamento:     Number(projeto.orcamento),
+      executado:     Number(projeto.executado),
+      tags:          projeto.tags ?? [],
+    }
+  }
+
 
   // ── Estados de carregamento ───────────────────────────────────
   if (carregando) {
@@ -177,10 +223,52 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
             <FileText size={15} />
             Gerar PDF
           </button>
+          <button
+            onClick={() => setEditAberto(true)}
+            className="flex items-center gap-2 border border-atlia-blue text-atlia-blue font-medium py-2 px-3.5 rounded-lg hover:bg-atlia-blue/5 transition-colors text-sm"
+          >
+            <Pencil size={14} />
+            Editar
+          </button>
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-2 border border-gray-200 text-gray-500 font-medium py-2 px-3.5 rounded-lg hover:border-red-300 hover:text-red-500 transition-colors text-sm"
+            >
+              <Trash2 size={14} />
+              Excluir
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-600 font-medium">Tem certeza?</span>
+              <button
+                onClick={handleDelete}
+                disabled={deletando}
+                className="flex items-center gap-1.5 bg-red-600 text-white font-medium py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-xs disabled:opacity-70"
+              >
+                {deletando ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                Excluir definitivamente
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-xs text-gray-500 hover:text-gray-700 py-2 px-2"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="p-8 space-y-6">
+
+        {/* Banner de sucesso */}
+        {sucesso && (
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-xl px-4 py-3">
+            <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+            {sucesso}
+          </div>
+        )}
 
         {/* ── Cards de resumo ── */}
         <div className="grid grid-cols-4 gap-4">
@@ -442,6 +530,23 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
           </div>
         </div>
       </div>
+
+      {/* Formulário de edição */}
+      <SlidePanel
+        aberto={editAberto}
+        titulo="Editar Projeto"
+        onFechar={() => setEditAberto(false)}
+      >
+        <ProjetoForm
+          projetoInicial={projetoParaEditavel()}
+          onSuccess={(msg) => {
+            setEditAberto(false)
+            setSucesso(msg)
+            carregar()
+          }}
+          onCancelar={() => setEditAberto(false)}
+        />
+      </SlidePanel>
     </div>
   )
 }
