@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import StatCard from '@/components/ui/StatCard'
 import StatusBadge from '@/components/ui/StatusBadge'
@@ -9,30 +10,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, LineChart, Line, Legend,
 } from 'recharts'
+import { createClient } from '@/lib/supabase/client'
 
-const stats = [
-  { title: 'Total de Projetos',  value: 47, subtitle: 'em carteira',        icon: FolderKanban,  iconColor: 'text-atlia-blue'  },
-  { title: 'No Prazo',           value: 31, subtitle: '66% da carteira',     icon: CheckCircle2,  iconColor: 'text-atlia-green' },
-  { title: 'Requerem Atenção',   value: 10, subtitle: 'acompanhar de perto', icon: AlertTriangle, iconColor: 'text-yellow-500'  },
-  { title: 'Atrasados',          value: 6,  subtitle: 'ação imediata',       icon: Clock,         iconColor: 'text-atlia-red'   },
-]
-
-const projetosDestaque = [
-  { id:'1', nome:'Recapeamento Asfáltico — Zona Norte', secretaria:'Obras',     status:'em_andamento', pct:68, prazo:'30/08/2026' },
-  { id:'2', nome:'UBS Jardim das Palmeiras',            secretaria:'Saúde',     status:'atencao',      pct:32, prazo:'15/06/2026' },
-  { id:'3', nome:'Sistema de Monitoramento Escolar',    secretaria:'Educação',  status:'em_andamento', pct:81, prazo:'15/12/2026' },
-  { id:'4', nome:'Revitalização da Praça Central',      secretaria:'Urbanismo', status:'atrasado',     pct:15, prazo:'01/04/2026' },
-  { id:'5', nome:'Programa Emprego e Renda 2026',       secretaria:'Trabalho',  status:'em_andamento', pct:55, prazo:'31/12/2026' },
-]
-
-const eixosProgresso = [
-  { titulo: 'Uberlândia Sustentável', atingimento: 44, projetos: 218, cor: '#1F3864' },
-  { titulo: 'Vida em Uberlândia',     atingimento: 56, projetos: 194, cor: '#2E75B6' },
-  { titulo: 'Espaço Uberlândia',      atingimento: 51, projetos: 119, cor: '#C07B00' },
-  { titulo: 'Uberlândia Humana',      atingimento: 38, projetos:  99, cor: '#538135' },
-]
-
-// Evolução mensal — execução orçamentária (R$ milhões)
+// Gráfico de execução orçamentária — histórico ainda não está no banco
 const evolucaoMensal = [
   { mes: 'Jan', previsto: 4.2, executado: 3.8 },
   { mes: 'Fev', previsto: 4.5, executado: 4.1 },
@@ -42,15 +22,115 @@ const evolucaoMensal = [
   { mes: 'Jun', previsto: 6.0, executado: 5.5 },
 ]
 
-// Projetos por status
-const porStatus = [
-  { name: 'Em andamento', value: 31, fill: '#70AD47' },
-  { name: 'Atenção',      value: 10, fill: '#FFC000' },
-  { name: 'Atrasado',     value: 6,  fill: '#C00000' },
-  { name: 'Não iniciado', value: 4,  fill: '#9CA3AF' },
-]
+function nomeCurto(nome: string): string {
+  return nome
+    .replace('Secretaria Municipal de ', '')
+    .replace('Secretaria de ', '')
+    .replace('Secretaria do ', '')
+    .replace('Secretaria da ', '')
+    .split(' e ')[0]
+    .trim()
+}
+
+function fmtData(d: string | null): string {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-')
+  return `${day}/${m}/${y}`
+}
+
+type ProjetoItem = {
+  id: string
+  nome: string
+  secretaria: string
+  status: string
+  pct: number
+  data_fim: string | null
+}
+
+type EixoItem = {
+  nome: string
+  cor: string
+  objetivos: { pct_atual: number }[]
+}
 
 export default function DashboardPage() {
+  const [projetos, setProjetos]     = useState<ProjetoItem[]>([])
+  const [eixos, setEixos]           = useState<EixoItem[]>([])
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    async function carregar() {
+      const supabase = createClient()
+
+      const [{ data: projData }, { data: eixosData }] = await Promise.all([
+        supabase
+          .from('projetos')
+          .select('id, nome, status, pct, data_fim, secretarias(nome)')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('eixos')
+          .select('nome, cor, ordem, objetivos(pct_atual)')
+          .order('ordem'),
+      ])
+
+      setProjetos(
+        (projData ?? []).map((p: any) => ({
+          id:         p.id,
+          nome:       p.nome,
+          secretaria: nomeCurto(p.secretarias?.nome ?? ''),
+          status:     p.status,
+          pct:        p.pct,
+          data_fim:   p.data_fim,
+        }))
+      )
+      setEixos(eixosData ?? [])
+      setCarregando(false)
+    }
+    carregar()
+  }, [])
+
+  // ── Estatísticas ─────────────────────────────────────────────
+  const total     = projetos.length
+  const noPrazo   = projetos.filter(p => p.status === 'em_andamento' || p.status === 'concluido').length
+  const atencao   = projetos.filter(p => p.status === 'atencao').length
+  const atrasados = projetos.filter(p => p.status === 'atrasado').length
+
+  const stats = [
+    { title: 'Total de Projetos', value: total,     subtitle: 'em carteira',          icon: FolderKanban,  iconColor: 'text-atlia-blue'  },
+    { title: 'No Prazo',          value: noPrazo,   subtitle: total > 0 ? `${Math.round(noPrazo / total * 100)}% da carteira` : '—', icon: CheckCircle2, iconColor: 'text-atlia-green' },
+    { title: 'Requerem Atenção',  value: atencao,   subtitle: 'acompanhar de perto',  icon: AlertTriangle, iconColor: 'text-yellow-500'  },
+    { title: 'Atrasados',         value: atrasados, subtitle: 'ação imediata',         icon: Clock,         iconColor: 'text-atlia-red'   },
+  ]
+
+  // ── Projetos em destaque: mais críticos primeiro ──────────────
+  const ordemStatus: Record<string, number> = { atrasado: 0, atencao: 1, em_andamento: 2, nao_iniciado: 3, concluido: 4 }
+  const projetosDestaque = [...projetos]
+    .sort((a, b) => (ordemStatus[a.status] ?? 5) - (ordemStatus[b.status] ?? 5))
+    .slice(0, 5)
+
+  // ── Eixos: média dos objetivos ───────────────────────────────
+  const eixosProgresso = eixos.map(e => {
+    const objs   = e.objetivos ?? []
+    const media  = objs.length > 0 ? Math.round(objs.reduce((s, o) => s + o.pct_atual, 0) / objs.length) : 0
+    return { titulo: e.nome, atingimento: media, cor: e.cor }
+  })
+  const mediaGeral = eixosProgresso.length > 0
+    ? Math.round(eixosProgresso.reduce((s, e) => s + e.atingimento, 0) / eixosProgresso.length)
+    : 0
+
+  // ── Semáforo por secretaria ───────────────────────────────────
+  const secMap = new Map<string, { verde: number; amarelo: number; vermelho: number }>()
+  projetos.forEach(p => {
+    if (!secMap.has(p.secretaria)) secMap.set(p.secretaria, { verde: 0, amarelo: 0, vermelho: 0 })
+    const s = secMap.get(p.secretaria)!
+    if (p.status === 'atrasado')   s.vermelho++
+    else if (p.status === 'atencao') s.amarelo++
+    else                             s.verde++
+  })
+  const semaforo = Array.from(secMap.entries())
+    .map(([nome, s]) => ({ nome, ...s, total: s.verde + s.amarelo + s.vermelho }))
+    .filter(s => s.total > 0)
+
   return (
     <div className="flex flex-col flex-1">
       <Header
@@ -74,30 +154,34 @@ export default function DashboardPage() {
               <h2 className="font-semibold text-atlia-navy">Projetos em Destaque</h2>
               <Link href="/dashboard/projetos" className="text-sm text-atlia-blue hover:underline font-medium">Ver todos</Link>
             </div>
-            <div className="space-y-0 divide-y divide-gray-50">
-              {projetosDestaque.map((p) => (
-                <div key={p.id} className="flex items-center gap-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{p.nome}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-atlia-muted">{p.secretaria}</span>
-                      <span className="text-xs text-atlia-muted">·</span>
-                      <span className="text-xs text-atlia-muted">Prazo: {p.prazo}</span>
+            {carregando ? (
+              <div className="h-32 flex items-center justify-center text-atlia-muted text-sm">Carregando…</div>
+            ) : (
+              <div className="space-y-0 divide-y divide-gray-50">
+                {projetosDestaque.map((p) => (
+                  <div key={p.id} className="flex items-center gap-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{p.nome}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-atlia-muted">{p.secretaria}</span>
+                        <span className="text-xs text-atlia-muted">·</span>
+                        <span className="text-xs text-atlia-muted">Prazo: {fmtData(p.data_fim)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="w-28 shrink-0">
-                    <div className="flex justify-between text-xs text-atlia-muted mb-1">
-                      <span>{p.pct}%</span>
+                    <div className="w-28 shrink-0">
+                      <div className="flex justify-between text-xs text-atlia-muted mb-1">
+                        <span>{p.pct}%</span>
+                      </div>
+                      <ProgressBar
+                        value={p.pct}
+                        color={p.status === 'atrasado' ? 'red' : p.status === 'atencao' ? 'yellow' : 'green'}
+                      />
                     </div>
-                    <ProgressBar
-                      value={p.pct}
-                      color={p.status === 'atrasado' ? 'red' : p.status === 'atencao' ? 'yellow' : 'green'}
-                    />
+                    <StatusBadge status={p.status} />
                   </div>
-                  <StatusBadge status={p.status} />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Eixos estratégicos */}
@@ -107,7 +191,7 @@ export default function DashboardPage() {
               <Link href="/dashboard/mapa-estrategico" className="text-sm text-atlia-blue hover:underline font-medium">Ver mapa</Link>
             </div>
             <div className="space-y-4">
-              {eixosProgresso.map((e) => (
+              {(carregando ? [] : eixosProgresso).map((e) => (
                 <div key={e.titulo} className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-700 leading-tight truncate mr-2">{e.titulo}</p>
@@ -116,14 +200,13 @@ export default function DashboardPage() {
                   <div className="bg-gray-100 rounded-full h-2">
                     <div className="h-2 rounded-full transition-all" style={{ width: `${e.atingimento}%`, backgroundColor: e.cor }} />
                   </div>
-                  <p className="text-xs text-atlia-muted">{e.projetos} projetos</p>
                 </div>
               ))}
             </div>
             <div className="mt-5 pt-4 border-t border-gray-100 flex items-center gap-2">
               <TrendingUp size={15} className="text-atlia-green" />
               <p className="text-xs text-atlia-muted">
-                Atingimento médio: <span className="font-semibold text-atlia-navy">47%</span>
+                Atingimento médio: <span className="font-semibold text-atlia-navy">{mediaGeral}%</span>
               </p>
             </div>
           </div>
@@ -155,28 +238,28 @@ export default function DashboardPage() {
           <div className="card">
             <h2 className="font-semibold text-atlia-navy mb-4">Semáforo por Secretaria</h2>
             <div className="space-y-3">
-              {[
-                { nome: 'Obras',        verde: 8, amarelo: 2, vermelho: 1, total: 11 },
-                { nome: 'Saúde',        verde: 5, amarelo: 3, vermelho: 2, total: 10 },
-                { nome: 'Educação',     verde: 7, amarelo: 1, vermelho: 0, total: 8  },
-                { nome: 'Urbanismo',    verde: 3, amarelo: 2, vermelho: 2, total: 7  },
-                { nome: 'Trabalho',     verde: 4, amarelo: 1, vermelho: 0, total: 5  },
-              ].map((s) => (
+              {(carregando ? [] : semaforo).map((s) => (
                 <div key={s.nome} className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700 w-24 shrink-0">{s.nome}</span>
+                  <span className="text-sm font-medium text-gray-700 w-28 shrink-0 truncate">{s.nome}</span>
                   <div className="flex-1 flex rounded-full overflow-hidden h-5">
-                    <div className="flex items-center justify-center text-xs font-bold text-white"
-                      style={{ width: `${(s.verde / s.total) * 100}%`, backgroundColor: '#70AD47' }}>
-                      {s.verde > 0 && s.verde}
-                    </div>
-                    <div className="flex items-center justify-center text-xs font-bold text-white"
-                      style={{ width: `${(s.amarelo / s.total) * 100}%`, backgroundColor: '#FFC000' }}>
-                      {s.amarelo > 0 && s.amarelo}
-                    </div>
-                    <div className="flex items-center justify-center text-xs font-bold text-white"
-                      style={{ width: `${(s.vermelho / s.total) * 100}%`, backgroundColor: '#C00000' }}>
-                      {s.vermelho > 0 && s.vermelho}
-                    </div>
+                    {s.verde > 0 && (
+                      <div className="flex items-center justify-center text-xs font-bold text-white"
+                        style={{ width: `${(s.verde / s.total) * 100}%`, backgroundColor: '#70AD47' }}>
+                        {s.verde}
+                      </div>
+                    )}
+                    {s.amarelo > 0 && (
+                      <div className="flex items-center justify-center text-xs font-bold text-white"
+                        style={{ width: `${(s.amarelo / s.total) * 100}%`, backgroundColor: '#FFC000' }}>
+                        {s.amarelo}
+                      </div>
+                    )}
+                    {s.vermelho > 0 && (
+                      <div className="flex items-center justify-center text-xs font-bold text-white"
+                        style={{ width: `${(s.vermelho / s.total) * 100}%`, backgroundColor: '#C00000' }}>
+                        {s.vermelho}
+                      </div>
+                    )}
                   </div>
                   <span className="text-xs text-atlia-muted w-8 text-right">{s.total}</span>
                 </div>

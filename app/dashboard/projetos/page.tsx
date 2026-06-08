@@ -1,51 +1,114 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ProgressBar from '@/components/ui/ProgressBar'
-import { projetos } from '@/lib/data-projetos'
-import type { TipoGanho, Prioridade } from '@/lib/data-projetos'
 import { formatCurrency } from '@/lib/utils'
-import { Search, Plus, Filter, FolderKanban, ChevronRight } from 'lucide-react'
+import { Search, Plus, Filter, FolderKanban, ChevronRight, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-const secretarias = ['Todas', ...Array.from(new Set(projetos.map(p => p.secretaria)))]
-const statusOpts  = ['Todos', 'em_andamento', 'atencao', 'atrasado', 'nao_iniciado', 'concluido']
-const tiposGanho: TipoGanho[] = ['N/A', 'Operacional', 'Financeiro', 'Econômico']
+type Prioridade = 'alta' | 'media' | 'baixa'
+type TipoGanho  = 'N/A' | 'Operacional' | 'Financeiro' | 'Econômico'
 
-const tipoGanhoStyle: Record<TipoGanho, string> = {
+interface ProjetoUI {
+  id: string
+  nome: string
+  secretaria: string
+  responsavel: string
+  status: string
+  prioridade: Prioridade
+  tipoGanho: string
+  pct: number
+  dataFim: string
+  orcamento: number
+  executado: number
+}
+
+const tipoGanhoStyle: Record<string, string> = {
   'N/A':         'bg-gray-100 text-gray-500',
   'Operacional': 'bg-blue-50 text-blue-700',
   'Financeiro':  'bg-green-50 text-green-700',
   'Econômico':   'bg-amber-50 text-amber-700',
 }
 
-const prioridadeStyle: Record<Prioridade, string> = {
+const prioridadeStyle: Record<string, string> = {
   alta:  'bg-red-50 text-red-600',
   media: 'bg-yellow-50 text-yellow-700',
   baixa: 'bg-gray-50 text-gray-500',
 }
 
-const prioridadeLabel: Record<Prioridade, string> = {
+const prioridadeLabel: Record<string, string> = {
   alta: 'Alta', media: 'Média', baixa: 'Baixa',
 }
 
+function nomeCurto(nome: string): string {
+  return nome
+    .replace('Secretaria Municipal de ', '')
+    .replace('Secretaria de ', '')
+    .replace('Secretaria do ', '')
+    .replace('Secretaria da ', '')
+    .split(' e ')[0]
+    .trim()
+}
+
+function fmtData(d: string | null): string {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-')
+  return `${day}/${m}/${y}`
+}
+
+const statusOpts  = ['Todos', 'em_andamento', 'atencao', 'atrasado', 'nao_iniciado', 'concluido']
+const tiposGanho: TipoGanho[] = ['N/A', 'Operacional', 'Financeiro', 'Econômico']
+
 export default function ProjetosPage() {
+  const [projetos, setProjetos]     = useState<ProjetoUI[]>([])
+  const [carregando, setCarregando] = useState(true)
   const [busca, setBusca]           = useState('')
   const [secretaria, setSecretaria] = useState('Todas')
   const [status, setStatus]         = useState('Todos')
   const [tipoGanho, setTipoGanho]   = useState<TipoGanho | 'Todos'>('Todos')
 
+  useEffect(() => {
+    async function carregar() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('projetos')
+        .select('id, nome, status, prioridade, tipo_ganho, pct, data_fim, orcamento, executado, secretarias(nome, responsavel)')
+        .order('created_at', { ascending: false })
+
+      const mapped: ProjetoUI[] = (data ?? []).map((p: any) => ({
+        id:          p.id,
+        nome:        p.nome,
+        secretaria:  nomeCurto(p.secretarias?.nome ?? ''),
+        responsavel: p.secretarias?.responsavel ?? '—',
+        status:      p.status,
+        prioridade:  p.prioridade,
+        tipoGanho:   p.tipo_ganho,
+        pct:         p.pct,
+        dataFim:     fmtData(p.data_fim),
+        orcamento:   Number(p.orcamento),
+        executado:   Number(p.executado),
+      }))
+
+      setProjetos(mapped)
+      setCarregando(false)
+    }
+    carregar()
+  }, [])
+
+  const secretarias = ['Todas', ...Array.from(new Set(projetos.map(p => p.secretaria)))]
+
   const filtrados = projetos.filter(p => {
     const matchBusca = p.nome.toLowerCase().includes(busca.toLowerCase()) ||
                        p.secretaria.toLowerCase().includes(busca.toLowerCase())
-    const matchSec   = secretaria === 'Todas'  || p.secretaria === secretaria
-    const matchSt    = status === 'Todos'       || p.status === status
-    const matchTipo  = tipoGanho === 'Todos'    || p.tipoGanho === tipoGanho
+    const matchSec   = secretaria === 'Todas' || p.secretaria === secretaria
+    const matchSt    = status === 'Todos'     || p.status === status
+    const matchTipo  = tipoGanho === 'Todos'  || p.tipoGanho === tipoGanho
     return matchBusca && matchSec && matchSt && matchTipo
   })
 
-  const orcamentoTotal = filtrados.reduce((s, p) => s + p.orcamento,  0)
+  const orcamentoTotal = filtrados.reduce((s, p) => s + p.orcamento, 0)
   const executadoTotal = filtrados.reduce((s, p) => s + p.executado, 0)
   const pctExecucao    = orcamentoTotal > 0 ? Math.round((executadoTotal / orcamentoTotal) * 100) : 0
 
@@ -58,10 +121,10 @@ export default function ProjetosPage() {
         {/* Resumo */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: 'Total na carteira',    value: projetos.length,                                                                   color: 'text-atlia-navy'  },
-            { label: 'Em andamento',         value: projetos.filter(p => p.status === 'em_andamento').length,                          color: 'text-atlia-green' },
-            { label: 'Requerem atenção',     value: projetos.filter(p => p.status === 'atencao' || p.status === 'atrasado').length,    color: 'text-atlia-red'   },
-            { label: 'Execução orçamentária', value: `${pctExecucao}%`,                                                               color: 'text-atlia-blue'  },
+            { label: 'Total na carteira',     value: projetos.length,                                                                  color: 'text-atlia-navy'  },
+            { label: 'Em andamento',          value: projetos.filter(p => p.status === 'em_andamento').length,                         color: 'text-atlia-green' },
+            { label: 'Requerem atenção',      value: projetos.filter(p => p.status === 'atencao' || p.status === 'atrasado').length,   color: 'text-atlia-red'   },
+            { label: 'Execução orçamentária', value: carregando ? '—' : `${pctExecucao}%`,                                            color: 'text-atlia-blue'  },
           ].map(s => (
             <div key={s.label} className="card py-4 px-5">
               <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -122,7 +185,14 @@ export default function ProjetosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filtrados.length === 0 ? (
+              {carregando ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center text-atlia-muted">
+                    <Loader2 size={24} className="mx-auto mb-2 animate-spin opacity-40" />
+                    Carregando projetos…
+                  </td>
+                </tr>
+              ) : filtrados.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-atlia-muted">
                     <FolderKanban size={32} className="mx-auto mb-2 opacity-30" />
@@ -150,7 +220,7 @@ export default function ProjetosPage() {
                   <td className="px-4 py-3.5 text-gray-600">{p.secretaria}</td>
                   <td className="px-4 py-3.5"><StatusBadge status={p.status} /></td>
                   <td className="px-4 py-3.5">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tipoGanhoStyle[p.tipoGanho]}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tipoGanhoStyle[p.tipoGanho] ?? 'bg-gray-100 text-gray-500'}`}>
                       {p.tipoGanho}
                     </span>
                   </td>
@@ -179,7 +249,7 @@ export default function ProjetosPage() {
             </tbody>
           </table>
 
-          {filtrados.length > 0 && (
+          {!carregando && filtrados.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-atlia-gray/40 flex items-center justify-between">
               <span className="text-xs text-atlia-muted">{filtrados.length} projeto(s) exibido(s)</span>
               <div className="flex items-center gap-6 text-xs text-atlia-muted">

@@ -1,27 +1,32 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ProgressBar from '@/components/ui/ProgressBar'
-import { Plus, TrendingUp, TrendingDown, Filter, BarChart3, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Filter, BarChart3, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { createClient } from '@/lib/supabase/client'
 
-const indicadores = [
-  { id:'1',  nome:'Taxa de cobertura vacinação infantil',        secretaria:'Saúde',        unidade:'%',    meta:95,   atual:88,   status:'atencao',  periodicidade:'Mensal'     },
-  { id:'2',  nome:'Índice de alfabetização — 3º ano EF',         secretaria:'Educação',     unidade:'%',    meta:90,   atual:94,   status:'no_prazo', periodicidade:'Anual'      },
-  { id:'3',  nome:'Km de vias pavimentadas (acumulado)',          secretaria:'Obras',        unidade:'km',   meta:120,  atual:87,   status:'atencao',  periodicidade:'Trimestral' },
-  { id:'4',  nome:'Tempo médio de espera em UBS',                secretaria:'Saúde',        unidade:'min',  meta:30,   atual:48,   status:'critico',  periodicidade:'Mensal'     },
-  { id:'5',  nome:'Empregos formais gerados',                    secretaria:'Trabalho',     unidade:'empr', meta:2000, atual:1420, status:'atencao',  periodicidade:'Trimestral' },
-  { id:'6',  nome:'Cobertura de coleta seletiva por bairros',    secretaria:'Meio Amb.',    unidade:'%',    meta:80,   atual:65,   status:'atencao',  periodicidade:'Mensal'     },
-  { id:'7',  nome:'Nota de satisfação serviços digitais (1–5)',  secretaria:'Adm. Digital', unidade:'pts',  meta:4.5,  atual:4.7,  status:'no_prazo', periodicidade:'Mensal'     },
-  { id:'8',  nome:'Receita própria per capita',                  secretaria:'Finanças',     unidade:'R$',   meta:1800, atual:1920, status:'no_prazo', periodicidade:'Anual'      },
-  { id:'9',  nome:'Crianças matriculadas em tempo integral',     secretaria:'Educação',     unidade:'%',    meta:60,   atual:54,   status:'atencao',  periodicidade:'Semestral'  },
-  { id:'10', nome:'Índice de arrecadação de ISSQN',              secretaria:'Finanças',     unidade:'%',    meta:100,  atual:92,   status:'atencao',  periodicidade:'Mensal'     },
-  { id:'11', nome:'Leitos de UTI por 10 mil hab.',               secretaria:'Saúde',        unidade:'lts',  meta:2.5,  atual:1.8,  status:'critico',  periodicidade:'Anual'      },
-  { id:'12', nome:'Obras entregues no prazo',                    secretaria:'Obras',        unidade:'%',    meta:75,   atual:62,   status:'atencao',  periodicidade:'Trimestral' },
-]
+interface IndicadorUI {
+  id: string
+  nome: string
+  secretaria: string
+  unidade: string
+  meta: number
+  atual: number
+  menorMelhor: boolean
+  status: string
+}
 
-const secretariasOpts = ['Todas', ...Array.from(new Set(indicadores.map(i => i.secretaria)))]
+function nomeCurto(nome: string): string {
+  return nome
+    .replace('Secretaria Municipal de ', '')
+    .replace('Secretaria de ', '')
+    .replace('Secretaria do ', '')
+    .replace('Secretaria da ', '')
+    .split(' e ')[0]
+    .trim()
+}
 
 function formatValue(v: number, unidade: string) {
   if (unidade === 'R$') return `R$ ${v.toLocaleString('pt-BR')}`
@@ -29,31 +34,66 @@ function formatValue(v: number, unidade: string) {
   return `${v.toLocaleString('pt-BR')} ${unidade}`
 }
 
-// Para o gráfico: menor é melhor quando unidade é 'min'
-function calcPct(atual: number, meta: number, unidade: string) {
-  if (unidade === 'min') return Math.round((meta / atual) * 100) // menor é melhor
+function calcPct(atual: number, meta: number, menorMelhor: boolean): number {
+  if (menorMelhor) return Math.round((meta / atual) * 100)
   return Math.min(150, Math.round((atual / meta) * 100))
 }
 
+function calcStatus(atual: number, meta: number, menorMelhor: boolean): string {
+  const pct = calcPct(atual, meta, menorMelhor)
+  if (pct >= 100) return 'no_prazo'
+  if (pct >= 70)  return 'atencao'
+  return 'critico'
+}
+
 export default function IndicadoresPage() {
-  const [filtroSec, setFiltroSec] = useState('Todas')
+  const [indicadores, setIndicadores] = useState<IndicadorUI[]>([])
+  const [carregando, setCarregando]   = useState(true)
+  const [filtroSec, setFiltroSec]     = useState('Todas')
+
+  useEffect(() => {
+    async function carregar() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('indicadores')
+        .select('id, nome, unidade, meta, valor_atual, menor_melhor, secretarias(nome)')
+        .order('created_at')
+
+      const mapped: IndicadorUI[] = (data ?? []).map((ind: any) => ({
+        id:          ind.id,
+        nome:        ind.nome,
+        secretaria:  nomeCurto(ind.secretarias?.nome ?? ''),
+        unidade:     ind.unidade,
+        meta:        Number(ind.meta),
+        atual:       Number(ind.valor_atual),
+        menorMelhor: ind.menor_melhor,
+        status:      calcStatus(Number(ind.valor_atual), Number(ind.meta), ind.menor_melhor),
+      }))
+
+      setIndicadores(mapped)
+      setCarregando(false)
+    }
+    carregar()
+  }, [])
+
+  const secretariasOpts = ['Todas', ...Array.from(new Set(indicadores.map(i => i.secretaria)))]
 
   const filtrados = filtroSec === 'Todas'
     ? indicadores
     : indicadores.filter(i => i.secretaria === filtroSec)
 
-  const acimaMeta  = filtrados.filter(i => calcPct(i.atual, i.meta, i.unidade) >= 100).length
-  const atencao    = filtrados.filter(i => { const p = calcPct(i.atual, i.meta, i.unidade); return p >= 70 && p < 100 }).length
-  const critico    = filtrados.filter(i => calcPct(i.atual, i.meta, i.unidade) < 70).length
+  const acimaMeta = filtrados.filter(i => calcPct(i.atual, i.meta, i.menorMelhor) >= 100).length
+  const emAtencao = filtrados.filter(i => { const p = calcPct(i.atual, i.meta, i.menorMelhor); return p >= 70 && p < 100 }).length
+  const critico   = filtrados.filter(i => calcPct(i.atual, i.meta, i.menorMelhor) < 70).length
 
-  // Dados para gráfico: % atingimento por indicador
-  const dadosGrafico = filtrados.slice(0, 8).map(i => ({
-    nome: i.nome.length > 28 ? i.nome.slice(0, 28) + '…' : i.nome,
-    pct: calcPct(i.atual, i.meta, i.unidade),
-    fill: calcPct(i.atual, i.meta, i.unidade) >= 100 ? '#70AD47'
-        : calcPct(i.atual, i.meta, i.unidade) >= 70  ? '#FFC000'
-        : '#C00000',
-  }))
+  const dadosGrafico = filtrados.slice(0, 8).map(i => {
+    const pct = calcPct(i.atual, i.meta, i.menorMelhor)
+    return {
+      nome: i.nome.length > 28 ? i.nome.slice(0, 28) + '…' : i.nome,
+      pct,
+      fill: pct >= 100 ? '#70AD47' : pct >= 70 ? '#FFC000' : '#C00000',
+    }
+  })
 
   return (
     <div className="flex flex-col flex-1">
@@ -74,7 +114,7 @@ export default function IndicadoresPage() {
             <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3">
               <AlertTriangle size={16} className="text-yellow-600" />
               <div>
-                <p className="text-xl font-bold text-yellow-700">{atencao}</p>
+                <p className="text-xl font-bold text-yellow-700">{emAtencao}</p>
                 <p className="text-xs text-yellow-700">Em atenção</p>
               </div>
             </div>
@@ -108,37 +148,43 @@ export default function IndicadoresPage() {
             <h3 className="font-semibold text-atlia-navy text-sm">% de Atingimento das Metas</h3>
             <span className="text-xs text-atlia-muted ml-1">(linha = 100% = meta)</span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={dadosGrafico} barSize={28} margin={{ top: 4, right: 8, left: -20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-              <XAxis dataKey="nome" tick={{ fontSize: 10, fill: '#6B7280' }} angle={-35} textAnchor="end" interval={0} />
-              <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} domain={[0, 140]} />
-              <Tooltip
-                formatter={(v: number) => [`${v}%`, 'Atingimento']}
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
-              />
-              <ReferenceLine y={100} stroke="#1F3864" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: 'Meta', position: 'right', fontSize: 10, fill: '#1F3864' }} />
-              <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                {dadosGrafico.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {carregando ? (
+            <div className="h-32 flex items-center justify-center text-atlia-muted">
+              <Loader2 size={20} className="animate-spin opacity-40 mr-2" />
+              Carregando…
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={dadosGrafico} barSize={28} margin={{ top: 4, right: 8, left: -20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
+                <XAxis dataKey="nome" tick={{ fontSize: 10, fill: '#6B7280' }} angle={-35} textAnchor="end" interval={0} />
+                <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} domain={[0, 140]} />
+                <Tooltip
+                  formatter={(v: number) => [`${v}%`, 'Atingimento']}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
+                />
+                <ReferenceLine y={100} stroke="#1F3864" strokeDasharray="4 4" strokeWidth={1.5}
+                  label={{ value: 'Meta', position: 'right', fontSize: 10, fill: '#1F3864' }} />
+                <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
+                  {dadosGrafico.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Cards de indicadores */}
         <div className="grid grid-cols-2 gap-5">
           {filtrados.map((ind) => {
-            const pct = calcPct(ind.atual, ind.meta, ind.unidade)
-            const acima = pct >= 100
-            const corBarra = pct >= 100 ? 'green' as const : pct >= 70 ? 'yellow' as const : 'red' as const
+            const pct    = calcPct(ind.atual, ind.meta, ind.menorMelhor)
+            const acima  = pct >= 100
+            const corBar = pct >= 100 ? 'green' as const : pct >= 70 ? 'yellow' as const : 'red' as const
             return (
               <div key={ind.id} className="card hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 mr-3">
                     <p className="font-medium text-gray-800 text-sm leading-tight">{ind.nome}</p>
-                    <p className="text-xs text-atlia-muted mt-0.5">{ind.secretaria} • {ind.periodicidade}</p>
+                    <p className="text-xs text-atlia-muted mt-0.5">{ind.secretaria}</p>
                   </div>
                   <StatusBadge status={ind.status} />
                 </div>
@@ -166,7 +212,7 @@ export default function IndicadoresPage() {
                   </div>
                 </div>
 
-                <ProgressBar value={Math.min(pct, 100)} color={corBarra} />
+                <ProgressBar value={Math.min(pct, 100)} color={corBar} />
               </div>
             )
           })}
