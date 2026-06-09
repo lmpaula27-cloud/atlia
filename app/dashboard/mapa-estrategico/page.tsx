@@ -5,11 +5,17 @@ import ProgressBar from '@/components/ui/ProgressBar'
 import { Target, Eye, Heart, ChevronRight, TrendingUp, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-// ── Missão/Visão/Valores — editáveis na aba Município das Configurações no futuro
-const identidade = {
-  missao: 'Promover uma cidade com foco na cidadania, inovação, inclusão social e desenvolvimento com sustentabilidade, transformando o município em referência nacional de gestão pública.',
-  visao:  'Consolidar, até 2035, o município como uma cidade inteligente, sustentável, acolhedora e comprometida com o cuidado das pessoas, por meio de políticas públicas integradas, eficientes e inovadoras.',
+// Fallback caso o banco ainda não tenha os campos preenchidos
+const FALLBACK_IDENTIDADE = {
+  missao:  'Promover uma cidade com foco na cidadania, inovação, inclusão social e desenvolvimento com sustentabilidade, transformando o município em referência nacional de gestão pública.',
+  visao:   'Consolidar, até 2035, o município como uma cidade inteligente, sustentável, acolhedora e comprometida com o cuidado das pessoas, por meio de políticas públicas integradas, eficientes e inovadoras.',
   valores: ['Inovação', 'Ética e Transparência', 'Sustentabilidade', 'Cuidado com Pessoas', 'Compromisso com Resultados'],
+}
+
+interface Identidade {
+  missao: string
+  visao: string
+  valores: string[]
 }
 
 interface ObjetivoUI {
@@ -45,14 +51,15 @@ function getCorAtingimento(v: number) {
 }
 
 export default function MapaEstrategicoPage() {
-  const [eixos, setEixos]         = useState<EixoUI[]>([])
+  const [eixos, setEixos]           = useState<EixoUI[]>([])
+  const [identidade, setIdentidade] = useState<Identidade>(FALLBACK_IDENTIDADE)
   const [carregando, setCarregando] = useState(true)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
     const supabase = createClient()
 
-    const [{ data: eixosRaw }, { data: projRaw }] = await Promise.all([
+    const [{ data: eixosRaw }, { data: projRaw }, { data: munData }] = await Promise.all([
       supabase
         .from('eixos')
         .select('id, nome, descricao, cor, ordem, objetivos(id, nome, pct_atual)')
@@ -61,7 +68,22 @@ export default function MapaEstrategicoPage() {
         .from('projetos')
         .select('objetivo_id, status')
         .not('objetivo_id', 'is', null),
+      supabase
+        .from('municipios')
+        .select('missao, visao, valores')
+        .single(),
     ])
+
+    // Identidade do município — usa banco se preenchido, senão fallback
+    if (munData) {
+      setIdentidade({
+        missao:  munData.missao  || FALLBACK_IDENTIDADE.missao,
+        visao:   munData.visao   || FALLBACK_IDENTIDADE.visao,
+        valores: (munData.valores && munData.valores.length > 0)
+                   ? munData.valores
+                   : FALLBACK_IDENTIDADE.valores,
+      })
+    }
 
     const projs = projRaw ?? []
 

@@ -86,6 +86,9 @@ export default function ConfiguracoesPage() {
         endereco:       data.endereco ?? '',
         mandato_inicio: data.mandato_inicio ?? '',
         mandato_fim:    data.mandato_fim ?? '',
+        missao:         data.missao ?? '',
+        visao:          data.visao ?? '',
+        valores:        (data.valores ?? []).join(', '),
       })
     }
   }, [])
@@ -104,6 +107,11 @@ export default function ConfiguracoesPage() {
       endereco:       municipio.endereco || null,
       mandato_inicio: municipio.mandato_inicio || null,
       mandato_fim:    municipio.mandato_fim || null,
+      missao:         municipio.missao || null,
+      visao:          municipio.visao || null,
+      valores:        municipio.valores
+                        ? municipio.valores.split(',').map(v => v.trim()).filter(Boolean)
+                        : [],
     }).eq('id', municipioId)
     setSalvandoMun(false)
     setSucesso('Dados do município salvos!')
@@ -353,6 +361,61 @@ export default function ConfiguracoesPage() {
             </div>
 
             <div className="flex justify-end">
+              <button onClick={salvarMunicipio} disabled={salvandoMun}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-atlia-navy text-white hover:bg-atlia-blue transition-colors disabled:opacity-70">
+                {salvandoMun ? <><Loader2 size={15} className="animate-spin" />Salvando…</> : <><Save size={15} />Salvar alterações</>}
+              </button>
+            </div>
+          </div>
+
+          {/* Plano de governo — identidade estratégica */}
+          <div className="card space-y-5">
+            <h2 className="font-semibold text-atlia-navy flex items-center gap-2">
+              <Calendar size={16} /> Identidade Estratégica
+            </h2>
+            <p className="text-xs text-atlia-muted -mt-2">Exibidos no Mapa Estratégico do sistema.</p>
+            <div>
+              <label className={labelCls}>Missão</label>
+              <textarea
+                value={municipio.missao ?? ''}
+                onChange={e => setMunicipio(prev => ({ ...prev, missao: e.target.value }))}
+                rows={3}
+                placeholder="Promover uma cidade com foco na cidadania, inovação..."
+                className={inputCls + ' resize-none'}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Visão</label>
+              <textarea
+                value={municipio.visao ?? ''}
+                onChange={e => setMunicipio(prev => ({ ...prev, visao: e.target.value }))}
+                rows={3}
+                placeholder="Consolidar, até 2035, o município como uma cidade inteligente..."
+                className={inputCls + ' resize-none'}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>
+                Valores <span className="text-xs text-gray-400 font-normal">(separe por vírgula)</span>
+              </label>
+              <input
+                type="text"
+                value={municipio.valores ?? ''}
+                onChange={e => setMunicipio(prev => ({ ...prev, valores: e.target.value }))}
+                placeholder="Inovação, Ética e Transparência, Sustentabilidade"
+                className={inputCls}
+              />
+              {municipio.valores && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {municipio.valores.split(',').map(v => v.trim()).filter(Boolean).map(v => (
+                    <span key={v} className="bg-green-50 text-green-800 border border-green-200 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                      {v}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-1">
               <button onClick={salvarMunicipio} disabled={salvandoMun}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-atlia-navy text-white hover:bg-atlia-blue transition-colors disabled:opacity-70">
                 {salvandoMun ? <><Loader2 size={15} className="animate-spin" />Salvando…</> : <><Save size={15} />Salvar alterações</>}
