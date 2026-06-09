@@ -366,7 +366,6 @@ export default function ConfiguracoesPage() {
                 {salvandoMun ? <><Loader2 size={15} className="animate-spin" />Salvando…</> : <><Save size={15} />Salvar alterações</>}
               </button>
             </div>
-          </div>
 
           {/* Plano de governo — identidade estratégica */}
           <div className="card space-y-5">
@@ -421,6 +420,7 @@ export default function ConfiguracoesPage() {
                 {salvandoMun ? <><Loader2 size={15} className="animate-spin" />Salvando…</> : <><Save size={15} />Salvar alterações</>}
               </button>
             </div>
+          </div>
           </div>
         )}
 
