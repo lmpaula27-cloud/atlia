@@ -69,14 +69,16 @@ export default function MarcoForm({ marcoInicial, projetoId, ordemSugerida = 1, 
       ordem,
     }
 
-    let error
+    let erroSalvar: string | null = null
     if (editando) {
-      ;({ error } = await supabase.from('marcos').update(payload).eq('id', marcoInicial!.id!))
+      const { error } = await supabase.from('marcos').update(payload).eq('id', marcoInicial!.id!)
+      erroSalvar = error?.message ?? null
     } else {
-      ;({ error } = await supabase.from('marcos').insert({ ...payload, projeto_id: projetoId }))
+      const { error } = await supabase.from('marcos').insert({ ...payload, projeto_id: projetoId })
+      erroSalvar = error?.message ?? null
     }
 
-    if (error) {
+    if (erroSalvar) {
       setErro('Erro ao salvar. Tente novamente.')
       setSalvando(false)
       return

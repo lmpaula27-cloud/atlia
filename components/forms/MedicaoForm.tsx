@@ -45,24 +45,26 @@ export default function MedicaoForm({ medicaoInicial, indicadorId, onSuccess, on
     setErro('')
 
     const supabase = createClient()
-    let error
+    let erroSalvar: string | null = null
 
     if (editando) {
-      ;({ error } = await supabase
+      const { error } = await supabase
         .from('medicoes_indicadores')
         .update({ mes, ano, valor: num })
-        .eq('id', medicaoInicial!.id!))
+        .eq('id', medicaoInicial!.id!)
+      erroSalvar = error?.message ?? null
     } else {
       // upsert: se já existir (mesmo indicador + mes + ano) atualiza o valor
-      ;({ error } = await supabase
+      const { error } = await supabase
         .from('medicoes_indicadores')
         .upsert(
           { indicador_id: indicadorId, mes, ano, valor: num },
           { onConflict: 'indicador_id,mes,ano' }
-        ))
+        )
+      erroSalvar = error?.message ?? null
     }
 
-    if (error) {
+    if (erroSalvar) {
       setErro('Erro ao salvar. Tente novamente.')
       setSalvando(false)
       return
