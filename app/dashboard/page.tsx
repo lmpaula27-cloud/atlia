@@ -8,19 +8,16 @@ import { FolderKanban, CheckCircle2, Clock, AlertTriangle, TrendingUp } from 'lu
 import Link from 'next/link'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Legend,
+  ResponsiveContainer, BarChart, Bar, Legend,
 } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 
-// Gráfico de execução orçamentária — histórico ainda não está no banco
-const evolucaoMensal = [
-  { mes: 'Jan', previsto: 4.2, executado: 3.8 },
-  { mes: 'Fev', previsto: 4.5, executado: 4.1 },
-  { mes: 'Mar', previsto: 5.0, executado: 4.6 },
-  { mes: 'Abr', previsto: 5.2, executado: 4.9 },
-  { mes: 'Mai', previsto: 5.8, executado: 5.1 },
-  { mes: 'Jun', previsto: 6.0, executado: 5.5 },
-]
+function fmtReais(v: number): string {
+  if (v === 0) return 'R$ 0'
+  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}mi`
+  if (v >= 1_000)     return `R$ ${(v / 1_000).toFixed(0)}k`
+  return `R$ ${v.toFixed(0)}`
+}
 
 function nomeCurto(nome: string): string {
   return nome
@@ -45,6 +42,8 @@ type ProjetoItem = {
   status: string
   pct: number
   data_fim: string | null
+  orcamento: number
+  executado: number
 }
 
 type EixoItem = {
@@ -65,7 +64,7 @@ export default function DashboardPage() {
       const [{ data: projData }, { data: eixosData }] = await Promise.all([
         supabase
           .from('projetos')
-          .select('id, nome, status, pct, data_fim, secretarias(nome)')
+          .select('id, nome, status, pct, data_fim, orcamento, executado, secretarias(nome)')
           .order('created_at', { ascending: false }),
         supabase
           .from('eixos')
@@ -81,6 +80,8 @@ export default function DashboardPage() {
           status:     p.status,
           pct:        p.pct,
           data_fim:   p.data_fim,
+          orcamento:  p.orcamento  ?? 0,
+          executado:  p.executado  ?? 0,
         }))
       )
       setEixos(eixosData ?? [])
@@ -117,6 +118,17 @@ export default function DashboardPage() {
   const mediaGeral = eixosProgresso.length > 0
     ? Math.round(eixosProgresso.reduce((s, e) => s + e.atingimento, 0) / eixosProgresso.length)
     : 0
+
+  // ── Execução orçamentária por secretaria ─────────────────────
+  const execMap = new Map<string, { nome: string; orcamento: number; executado: number }>()
+  projetos.forEach(p => {
+    if (!execMap.has(p.secretaria)) execMap.set(p.secretaria, { nome: p.secretaria, orcamento: 0, executado: 0 })
+    const s = execMap.get(p.secretaria)!
+    s.orcamento += p.orcamento
+    s.executado += p.executado
+  })
+  const execucaoPorSecretaria = Array.from(execMap.values())
+    .filter(s => s.orcamento > 0 || s.executado > 0)
 
   // ── Semáforo por secretaria ───────────────────────────────────
   const secMap = new Map<string, { verde: number; amarelo: number; vermelho: number }>()
@@ -215,23 +227,31 @@ export default function DashboardPage() {
         {/* Gráficos */}
         <div className="grid grid-cols-2 gap-5">
 
-          {/* Execução orçamentária */}
+          {/* Execução orçamentária por secretaria */}
           <div className="card">
-            <h2 className="font-semibold text-atlia-navy mb-4">Execução Orçamentária Mensal (R$ mi)</h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={evolucaoMensal} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6B7280' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} domain={[3, 7]} />
-                <Tooltip
-                  formatter={(v: number, name: string) => [`R$ ${v.toFixed(1)}mi`, name === 'previsto' ? 'Previsto' : 'Executado']}
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
-                />
-                <Legend formatter={(v) => v === 'previsto' ? 'Previsto' : 'Executado'} wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="previsto"  stroke="#9CA3AF" strokeWidth={2} strokeDasharray="5 4" dot={false} />
-                <Line type="monotone" dataKey="executado" stroke="#2E75B6" strokeWidth={2.5} dot={{ r: 4, fill: '#2E75B6' }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <h2 className="font-semibold text-atlia-navy mb-4">Execução Orçamentária por Secretaria</h2>
+            {carregando ? (
+              <div className="h-[200px] flex items-center justify-center text-atlia-muted text-sm">Carregando…</div>
+            ) : execucaoPorSecretaria.length === 0 ? (
+              <div className="h-[200px] flex items-center justify-center text-atlia-muted text-sm">
+                Nenhum orçamento cadastrado nos projetos
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={execucaoPorSecretaria} margin={{ top: 4, right: 8, left: -10, bottom: 0 }} barGap={4}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
+                  <XAxis dataKey="nome" tick={{ fontSize: 10, fill: '#6B7280' }} />
+                  <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(v) => fmtReais(v)} width={56} />
+                  <Tooltip
+                    formatter={(v: number, name: string) => [fmtReais(v), name === 'orcamento' ? 'Orçado' : 'Executado']}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
+                  />
+                  <Legend formatter={(v) => v === 'orcamento' ? 'Orçado' : 'Executado'} wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="orcamento" name="orcamento" fill="#D1D5DB" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="executado" name="executado" fill="#2E75B6" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* Semáforo por secretaria */}
