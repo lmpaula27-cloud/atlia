@@ -165,7 +165,7 @@ export default function IndicadorDetalhePage({ params }: { params: { id: string 
   }))
 
   // Agrupar por ano para a tabela
-  const anosDisponiveis = [...new Set(medicoes.map(m => m.ano))].sort((a, b) => b - a)
+  const anosDisponiveis = Array.from(new Set(medicoes.map((m: any) => m.ano as number))).sort((a, b) => b - a)
 
   // Indicador para o form de edição
   const indicadorEditavel = {
