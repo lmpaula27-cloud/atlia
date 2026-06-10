@@ -195,6 +195,9 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
       orcamento:     Number(projeto.orcamento),
       executado:     Number(projeto.executado),
       tags:          projeto.tags ?? [],
+      bairro:        projeto.bairro ?? '',
+      lat:           projeto.lat ?? null,
+      lng:           projeto.lng ?? null,
     }
   }
 

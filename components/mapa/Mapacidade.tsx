@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useRef } from 'react'
 
-interface Projeto {
+export interface ProjetoMapa {
   id: string
   nome: string
   secretaria: string
-  status: 'em_andamento' | 'atencao' | 'atrasado' | 'concluido' | 'nao_iniciado'
+  status: string
   pct: number
   lat: number
   lng: number
@@ -28,37 +28,22 @@ const statusLabel: Record<string, string> = {
   nao_iniciado: 'Não iniciado',
 }
 
-// Projetos de exemplo com coordenadas em Uberlândia
-const projetos: Projeto[] = [
-  { id:'1',  nome:'Recapeamento Asfáltico — Zona Norte',  secretaria:'Obras',      status:'em_andamento', pct:68, lat:-18.8892, lng:-48.2557, bairro:'Tibery'          },
-  { id:'2',  nome:'UBS Jardim das Palmeiras',             secretaria:'Saúde',      status:'atencao',      pct:32, lat:-18.9412, lng:-48.2981, bairro:'Jd. das Palmeiras'},
-  { id:'3',  nome:'Sistema de Monitoramento Escolar',     secretaria:'Educação',   status:'em_andamento', pct:81, lat:-18.9186, lng:-48.2772, bairro:'Centro'           },
-  { id:'4',  nome:'Revitalização da Praça Central',       secretaria:'Urbanismo',  status:'atrasado',     pct:15, lat:-18.9181, lng:-48.2769, bairro:'Centro'           },
-  { id:'5',  nome:'Programa Emprego e Renda 2026',        secretaria:'Trabalho',   status:'em_andamento', pct:55, lat:-18.9250, lng:-48.2650, bairro:'Saraiva'          },
-  { id:'6',  nome:'Pavimentação Distrito Industrial',     secretaria:'Obras',      status:'nao_iniciado', pct:0,  lat:-18.8750, lng:-48.2400, bairro:'Dist. Industrial'  },
-  { id:'7',  nome:'Ampliação do CRAS Norte',              secretaria:'Assistência',status:'em_andamento', pct:47, lat:-18.8810, lng:-48.2620, bairro:'Marta Helena'     },
-  { id:'8',  nome:'Iluminação LED — Centro Histórico',    secretaria:'Urbanismo',  status:'concluido',    pct:100,lat:-18.9195, lng:-48.2780, bairro:'Centro'           },
-  { id:'9',  nome:'Ciclovia Avenida João Naves',          secretaria:'Obras',      status:'em_andamento', pct:62, lat:-18.9100, lng:-48.2500, bairro:'Martins'          },
-  { id:'10', nome:'Reforma da Escola Municipal Bom Jesus',secretaria:'Educação',   status:'atencao',      pct:40, lat:-18.9350, lng:-48.3100, bairro:'Canaã'            },
-  { id:'11', nome:'UPA Zona Sul — Ampliação',             secretaria:'Saúde',      status:'atrasado',     pct:20, lat:-18.9600, lng:-48.2900, bairro:'Luizote'          },
-  { id:'12', nome:'Parque Linear Córrego São Pedro',      secretaria:'Meio Amb.',  status:'em_andamento', pct:55, lat:-18.9050, lng:-48.2850, bairro:'Segismundo Pereira'},
-]
-
 interface Props {
-  filtroStatus?: string
-  filtroSecretaria?: string
+  projetos: ProjetoMapa[]
+  centroLat?: number
+  centroLng?: number
 }
 
-export default function MapaCidade({ filtroStatus = 'todos', filtroSecretaria = 'Todas' }: Props) {
-  const mapRef = useRef<HTMLDivElement>(null)
+export default function MapaCidade({ projetos, centroLat = -18.9186, centroLng = -48.2772 }: Props) {
+  const mapRef         = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
 
+  // Inicializa o mapa uma única vez
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (mapInstanceRef.current) return
 
     import('leaflet').then((L) => {
-      // Fix ícone padrão do Leaflet no Next.js
       delete (L.Icon.Default.prototype as any)._getIconUrl
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -69,18 +54,18 @@ export default function MapaCidade({ filtroStatus = 'todos', filtroSecretaria = 
       if (!mapRef.current) return
 
       const map = L.map(mapRef.current, {
-        center:    [-18.9186, -48.2772],
-        zoom:      13,
+        center:      [centroLat, centroLng],
+        zoom:        13,
         zoomControl: true,
       })
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
+        maxZoom:     19,
       }).addTo(map)
 
       mapInstanceRef.current = map
-      renderMarkers(L, map, filtroStatus, filtroSecretaria)
+      renderMarkers(L, map, projetos)
     })
 
     return () => {
@@ -89,36 +74,31 @@ export default function MapaCidade({ filtroStatus = 'todos', filtroSecretaria = 
         mapInstanceRef.current = null
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Re-renderiza marcadores quando projetos mudam
   useEffect(() => {
     if (!mapInstanceRef.current) return
     import('leaflet').then((L) => {
-      renderMarkers(L, mapInstanceRef.current, filtroStatus, filtroSecretaria)
+      renderMarkers(L, mapInstanceRef.current, projetos)
     })
-  }, [filtroStatus, filtroSecretaria])
+  }, [projetos])
 
-  function renderMarkers(L: any, map: any, status: string, secretaria: string) {
+  function renderMarkers(L: any, map: any, lista: ProjetoMapa[]) {
+    // Remove marcadores anteriores
     map.eachLayer((layer: any) => {
-      if (layer instanceof L.Marker || layer instanceof L.CircleMarker) {
-        map.removeLayer(layer)
-      }
+      if (layer instanceof L.CircleMarker) map.removeLayer(layer)
     })
 
-    const filtrados = projetos.filter(p => {
-      const matchStatus = status === 'todos' || p.status === status
-      const matchSec = secretaria === 'Todas' || p.secretaria === secretaria
-      return matchStatus && matchSec
-    })
-
-    filtrados.forEach(p => {
-      const cor = statusCor[p.status]
+    lista.forEach(p => {
+      const cor = statusCor[p.status] ?? '#9CA3AF'
       const marker = L.circleMarker([p.lat, p.lng], {
-        radius: 10,
-        fillColor: cor,
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
+        radius:      10,
+        fillColor:   cor,
+        color:       '#fff',
+        weight:      2,
+        opacity:     1,
         fillOpacity: 0.9,
       }).addTo(map)
 
@@ -128,7 +108,7 @@ export default function MapaCidade({ filtroStatus = 'todos', filtroSecretaria = 
             <span style="width:10px;height:10px;border-radius:50%;background:${cor};display:inline-block;flex-shrink:0"></span>
             <strong style="font-size:13px;color:#1F3864;line-height:1.3">${p.nome}</strong>
           </div>
-          <div style="font-size:12px;color:#6B7280;margin-bottom:4px">📍 ${p.bairro}</div>
+          <div style="font-size:12px;color:#6B7280;margin-bottom:4px">📍 ${p.bairro || '—'}</div>
           <div style="font-size:12px;color:#6B7280;margin-bottom:8px">🏛 ${p.secretaria}</div>
           <div style="background:#F5F7FA;border-radius:6px;padding:8px">
             <div style="display:flex;justify-content:space-between;margin-bottom:4px">
@@ -140,7 +120,7 @@ export default function MapaCidade({ filtroStatus = 'todos', filtroSecretaria = 
             </div>
           </div>
           <div style="margin-top:8px;font-size:11px;font-weight:600;color:${cor};text-transform:uppercase;letter-spacing:0.05em">
-            ${statusLabel[p.status]}
+            ${statusLabel[p.status] ?? p.status}
           </div>
         </div>
       `, { maxWidth: 280 })
@@ -149,10 +129,7 @@ export default function MapaCidade({ filtroStatus = 'todos', filtroSecretaria = 
 
   return (
     <>
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      />
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       <div ref={mapRef} className="w-full h-full rounded-xl" />
     </>
   )

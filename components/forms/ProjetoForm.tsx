@@ -19,6 +19,9 @@ export interface ProjetoEditavel {
   orcamento: number
   executado: number
   tags: string[]
+  bairro?: string | null
+  lat?: number | null
+  lng?: number | null
 }
 
 interface Props {
@@ -70,6 +73,9 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, onSucce
   const [orcamento,    setOrcamento]    = useState(projetoInicial?.orcamento ?? 0)
   const [executado,    setExecutado]    = useState(projetoInicial?.executado ?? 0)
   const [tagsTexto,    setTagsTexto]    = useState((projetoInicial?.tags ?? []).join(', '))
+  const [bairro,       setBairro]       = useState(projetoInicial?.bairro ?? '')
+  const [lat,          setLat]          = useState(projetoInicial?.lat?.toString() ?? '')
+  const [lng,          setLng]          = useState(projetoInicial?.lng?.toString() ?? '')
 
   // ── Dados para selects ───────────────────────────────────────
   const [secretarias, setSecretarias] = useState<{ id: string; nome: string }[]>([])
@@ -133,6 +139,9 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, onSucce
       orcamento,
       executado,
       tags:          tagsTexto ? tagsTexto.split(',').map(t => t.trim()).filter(Boolean) : [],
+      bairro:        bairro.trim() || null,
+      lat:           lat  !== '' && !isNaN(parseFloat(lat))  ? parseFloat(lat)  : null,
+      lng:           lng  !== '' && !isNaN(parseFloat(lng))  ? parseFloat(lng)  : null,
     }
 
     let erro: string | null = null
@@ -341,6 +350,54 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, onSucce
             </strong> · Saldo: R$ {(orcamento - executado).toLocaleString('pt-BR')}
           </p>
         )}
+      </div>
+
+      <div className="border-t border-gray-100" />
+
+      {/* ── Seção 5: Localização ── */}
+      <div>
+        <p className="text-xs font-bold text-atlia-muted uppercase tracking-wider mb-1">
+          Localização <span className="font-normal normal-case text-gray-400">(opcional — exibido no mapa)</span>
+        </p>
+        <p className="text-xs text-atlia-muted mb-4">
+          Abra o Google Maps, clique com o botão direito no local e copie as coordenadas.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className={labelCls}>Bairro / Região</label>
+            <input
+              type="text"
+              value={bairro}
+              onChange={e => setBairro(e.target.value)}
+              placeholder="Ex.: Centro, Zona Norte, Saraiva…"
+              className={inputCls}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Latitude</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={lat}
+                onChange={e => setLat(e.target.value)}
+                placeholder="Ex.: -18.9186"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Longitude</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={lng}
+                onChange={e => setLng(e.target.value)}
+                placeholder="Ex.: -48.2772"
+                className={inputCls}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Erro ── */}
