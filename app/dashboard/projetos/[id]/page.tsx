@@ -6,12 +6,13 @@ import ProgressBar from '@/components/ui/ProgressBar'
 import StatusBadge from '@/components/ui/StatusBadge'
 import SlidePanel from '@/components/ui/SlidePanel'
 import ProjetoForm, { type ProjetoEditavel } from '@/components/forms/ProjetoForm'
+import MarcoForm, { type MarcoEditavel } from '@/components/forms/MarcoForm'
 import { formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import {
   ArrowLeft, CheckCircle2, Circle, Clock, AlertTriangle,
-  Tag, Target, Layers, FileText, Building2, Loader2, Pencil, Trash2,
+  Tag, Target, Layers, FileText, Building2, Loader2, Pencil, Trash2, Plus,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -92,6 +93,12 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
   const [confirmDelete, setConfirmDelete]   = useState(false)
   const [deletando, setDeletando]           = useState(false)
   const [sucesso, setSucesso]               = useState('')
+
+  // ── CRUD de marcos ────────────────────────────────────────────
+  const [marcoAberto, setMarcoAberto]       = useState(false)
+  const [marcoEditando, setMarcoEditando]   = useState<MarcoEditavel | undefined>()
+  const [confirmDeleteMarco, setConfirmDeleteMarco] = useState<string | null>(null)
+  const [deletandoMarco, setDeletandoMarco] = useState(false)
   const usuario = useCurrentUser()
 
   // Um usuário pode editar se for admin, ou se for gestor da mesma secretaria do projeto
@@ -139,6 +146,35 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
     const { error } = await supabase.from('projetos').delete().eq('id', params.id)
     if (error) { setDeletando(false); return }
     router.push('/dashboard/projetos')
+  }
+
+  async function handleDeleteMarco(marcoId: string) {
+    setDeletandoMarco(true)
+    const supabase = createClient()
+    await supabase.from('marcos').delete().eq('id', marcoId)
+    setConfirmDeleteMarco(null)
+    setDeletandoMarco(false)
+    setSucesso('Marco excluído.')
+    carregar()
+  }
+
+  function abrirNovoMarco() {
+    setMarcoEditando(undefined)
+    setMarcoAberto(true)
+  }
+
+  function abrirEditarMarco(marco: any) {
+    setMarcoEditando({
+      id:             marco.id,
+      titulo:         marco.titulo,
+      descricao:      marco.descricao ?? '',
+      status:         marco.status,
+      pct:            marco.pct,
+      data_prevista:  marco.data_prevista  ?? '',
+      data_conclusao: marco.data_conclusao ?? '',
+      ordem:          marco.ordem,
+    })
+    setMarcoAberto(true)
   }
 
   // Converte dados do projeto para o formato do form
@@ -356,47 +392,110 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
 
             {/* Marcos */}
             <div className="card">
-              <h2 className="font-semibold text-atlia-navy text-sm mb-5">Marcos do Projeto</h2>
-              <div className="relative">
-                <div className="absolute left-[17px] top-0 bottom-0 w-0.5 bg-gray-100" />
-                <div className="space-y-3">
-                  {marcos.map((marco: any) => (
-                    <div key={marco.id} className="relative flex gap-4">
-                      <div
-                        className="relative z-10 w-9 h-9 rounded-full bg-white border-2 flex items-center justify-center shrink-0 shadow-sm"
-                        style={{ borderColor: marcoBorderColor(marco.status) }}
-                      >
-                        {marcoIconFor(marco.status)}
-                      </div>
-                      <div className={`flex-1 rounded-xl border p-3.5 mb-1 ${marcoLinhaStyle[marco.status] ?? 'border-gray-200 bg-white'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <span className="text-xs font-bold text-atlia-muted">
-                              {String(marco.ordem).padStart(2, '0')}
-                            </span>
-                            <h4 className="font-semibold text-gray-800 text-sm leading-snug">{marco.titulo}</h4>
-                            <p className="text-xs text-atlia-muted mt-0.5 leading-relaxed">{marco.descricao}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            {marco.data_conclusao
-                              ? <p className="text-xs text-atlia-green font-semibold">✓ {fmtData(marco.data_conclusao)}</p>
-                              : <p className="text-xs text-atlia-muted">{fmtData(marco.data_prevista)}</p>
-                            }
-                            {marco.status !== 'concluido' && marco.status !== 'pendente' && (
-                              <p className="text-xs font-bold mt-1" style={{ color: corBarra(marco.status) }}>{marco.pct}%</p>
-                            )}
-                          </div>
-                        </div>
-                        {(marco.status === 'em_andamento' || marco.status === 'atrasado') && (
-                          <div className="mt-2.5">
-                            <ProgressBar value={marco.pct} color={marco.status === 'atrasado' ? 'red' : 'blue'} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-semibold text-atlia-navy text-sm">
+                  Marcos do Projeto
+                  <span className="ml-2 text-xs font-normal text-atlia-muted">({marcos.length})</span>
+                </h2>
+                {podeEditar && (
+                  <button
+                    onClick={abrirNovoMarco}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-atlia-blue border border-atlia-blue/30 rounded-lg px-3 py-1.5 hover:bg-atlia-blue/5 transition-colors"
+                  >
+                    <Plus size={13} />
+                    Novo marco
+                  </button>
+                )}
               </div>
+
+              {marcos.length === 0 ? (
+                <p className="text-sm text-atlia-muted text-center py-8 italic">
+                  Nenhum marco cadastrado ainda.{podeEditar ? ' Clique em "Novo marco" para começar.' : ''}
+                </p>
+              ) : (
+                <div className="relative">
+                  <div className="absolute left-[17px] top-0 bottom-0 w-0.5 bg-gray-100" />
+                  <div className="space-y-3">
+                    {marcos.map((marco: any) => (
+                      <div key={marco.id} className="relative flex gap-4">
+                        <div
+                          className="relative z-10 w-9 h-9 rounded-full bg-white border-2 flex items-center justify-center shrink-0 shadow-sm"
+                          style={{ borderColor: marcoBorderColor(marco.status) }}
+                        >
+                          {marcoIconFor(marco.status)}
+                        </div>
+                        <div className={`flex-1 rounded-xl border p-3.5 mb-1 ${marcoLinhaStyle[marco.status] ?? 'border-gray-200 bg-white'}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-bold text-atlia-muted">
+                                {String(marco.ordem).padStart(2, '0')}
+                              </span>
+                              <h4 className="font-semibold text-gray-800 text-sm leading-snug">{marco.titulo}</h4>
+                              {marco.descricao && (
+                                <p className="text-xs text-atlia-muted mt-0.5 leading-relaxed">{marco.descricao}</p>
+                              )}
+                            </div>
+                            <div className="flex items-start gap-2 shrink-0">
+                              <div className="text-right">
+                                {marco.data_conclusao
+                                  ? <p className="text-xs text-atlia-green font-semibold">✓ {fmtData(marco.data_conclusao)}</p>
+                                  : <p className="text-xs text-atlia-muted">{fmtData(marco.data_prevista)}</p>
+                                }
+                                {marco.status !== 'concluido' && marco.status !== 'pendente' && (
+                                  <p className="text-xs font-bold mt-1" style={{ color: corBarra(marco.status) }}>{marco.pct}%</p>
+                                )}
+                              </div>
+                              {podeEditar && (
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => abrirEditarMarco(marco)}
+                                    className="p-1 rounded hover:bg-black/5 text-gray-400 hover:text-atlia-blue transition-colors"
+                                    title="Editar marco"
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  {confirmDeleteMarco === marco.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => handleDeleteMarco(marco.id)}
+                                        disabled={deletandoMarco}
+                                        className="p-1 rounded bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
+                                        title="Confirmar exclusão"
+                                      >
+                                        {deletandoMarco ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDeleteMarco(null)}
+                                        className="p-1 rounded hover:bg-black/5 text-gray-400 text-xs transition-colors"
+                                        title="Cancelar"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setConfirmDeleteMarco(marco.id)}
+                                      className="p-1 rounded hover:bg-black/5 text-gray-400 hover:text-red-500 transition-colors"
+                                      title="Excluir marco"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {(marco.status === 'em_andamento' || marco.status === 'atrasado') && (
+                            <div className="mt-2.5">
+                              <ProgressBar value={marco.pct} color={marco.status === 'atrasado' ? 'red' : 'blue'} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Histórico */}
@@ -543,6 +642,26 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
           </div>
         </div>
       </div>
+
+      {/* Formulário de marco */}
+      <SlidePanel
+        aberto={marcoAberto}
+        titulo={marcoEditando?.id ? 'Editar Marco' : 'Novo Marco'}
+        onFechar={() => { setMarcoAberto(false); setMarcoEditando(undefined) }}
+      >
+        <MarcoForm
+          marcoInicial={marcoEditando}
+          projetoId={params.id}
+          ordemSugerida={(projeto?.marcos?.length ?? 0) + 1}
+          onSuccess={(msg) => {
+            setMarcoAberto(false)
+            setMarcoEditando(undefined)
+            setSucesso(msg)
+            carregar()
+          }}
+          onCancelar={() => { setMarcoAberto(false); setMarcoEditando(undefined) }}
+        />
+      </SlidePanel>
 
       {/* Formulário de edição */}
       <SlidePanel
