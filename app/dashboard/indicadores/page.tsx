@@ -5,6 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import ProgressBar from '@/components/ui/ProgressBar'
 import SlidePanel from '@/components/ui/SlidePanel'
 import IndicadorForm from '@/components/forms/IndicadorForm'
+import Link from 'next/link'
 import { Plus, TrendingUp, TrendingDown, Filter, BarChart3, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
@@ -205,7 +206,7 @@ export default function IndicadoresPage() {
             const acima  = pct >= 100
             const corBar = pct >= 100 ? 'green' as const : pct >= 70 ? 'yellow' as const : 'red' as const
             return (
-              <div key={ind.id} className="card hover:shadow-md transition-shadow">
+              <Link key={ind.id} href={`/dashboard/indicadores/${ind.id}`} className="card hover:shadow-md transition-shadow block">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 mr-3">
                     <p className="font-medium text-gray-800 text-sm leading-tight">{ind.nome}</p>
@@ -238,7 +239,7 @@ export default function IndicadoresPage() {
                 </div>
 
                 <ProgressBar value={Math.min(pct, 100)} color={corBar} />
-              </div>
+              </Link>
             )
           })}
         </div>
