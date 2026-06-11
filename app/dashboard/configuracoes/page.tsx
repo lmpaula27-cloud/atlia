@@ -9,11 +9,11 @@ import {
   Building2, Users, CreditCard, Layers, Compass, Target,
   Save, Plus, Pencil, Trash2, CheckCircle2,
   Crown, Phone, Mail, Globe, Calendar,
-  AlertCircle, Loader2, XCircle,
+  AlertCircle, Loader2, XCircle, Inbox,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'usuarios' | 'plano'
+type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'usuarios' | 'leads' | 'plano'
 
 // ── Tipos ──────────────────────────────────────────────────────
 interface SecretariaRow {
@@ -32,6 +32,11 @@ interface UsuarioRow {
   perfil: 'admin' | 'gestor' | 'visualizador'; ativo: boolean
   secretaria_nome: string | null; email?: string
 }
+interface LeadRow {
+  id: string; nome: string; municipio: string; cargo: string | null
+  email: string; telefone: string | null; interesse: string
+  status: string; criado_em: string
+}
 
 const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-1 focus:ring-atlia-blue/20 transition-all'
 const labelCls = 'block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5'
@@ -40,6 +45,19 @@ const perfilInfo = {
   admin:        { label: 'Administrador', cor: 'bg-atlia-navy text-white'  },
   gestor:       { label: 'Gestor',        cor: 'bg-blue-100 text-blue-800' },
   visualizador: { label: 'Visualizador',  cor: 'bg-gray-100 text-gray-600' },
+}
+
+const leadStatusInfo: Record<string, { label: string; cor: string }> = {
+  novo:       { label: 'Novo',       cor: 'bg-blue-100 text-blue-700'   },
+  contatado:  { label: 'Contatado',  cor: 'bg-yellow-100 text-yellow-700' },
+  convertido: { label: 'Convertido', cor: 'bg-green-100 text-green-700' },
+  descartado: { label: 'Descartado', cor: 'bg-gray-100 text-gray-500'   },
+}
+
+const leadInteresseLabel: Record<string, string> = {
+  demo:        'Demonstração',
+  consultoria: 'Consultoria',
+  ambos:       'Plataforma + Consultoria',
 }
 
 function AbaBtn({ id, label, icon: Icon, ativa, onClick }: {
@@ -270,6 +288,37 @@ export default function ConfiguracoesPage() {
     carregarUsuarios()
   }
 
+  // ── Leads ─────────────────────────────────────────────────
+  const [leads, setLeads]                   = useState<LeadRow[]>([])
+  const [carregandoLeads, setCarregandoLeads] = useState(true)
+  const [filtroLead, setFiltroLead]         = useState('todos')
+  const [confirmDelLead, setConfirmDelLead] = useState<string | null>(null)
+
+  const carregarLeads = useCallback(async () => {
+    setCarregandoLeads(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('leads')
+      .select('*')
+      .order('criado_em', { ascending: false })
+    setLeads(data ?? [])
+    setCarregandoLeads(false)
+  }, [])
+
+  async function atualizarStatusLead(id: string, status: string) {
+    const supabase = createClient()
+    await supabase.from('leads').update({ status }).eq('id', id)
+    carregarLeads()
+  }
+
+  async function excluirLead(id: string) {
+    const supabase = createClient()
+    await supabase.from('leads').delete().eq('id', id)
+    setConfirmDelLead(null)
+    carregarLeads()
+    setSucesso('Lead excluído.')
+  }
+
   // ── Carrega ao trocar de aba ─────────────────────────────
   useEffect(() => {
     if (aba === 'municipio')   carregarMunicipio()
@@ -277,7 +326,8 @@ export default function ConfiguracoesPage() {
     if (aba === 'eixos')       carregarEixos()
     if (aba === 'objetivos')  { carregarObjetivos(); carregarEixos() }
     if (aba === 'usuarios')   { carregarUsuarios();  carregarSecretarias() }
-  }, [aba, carregarMunicipio, carregarSecretarias, carregarEixos, carregarObjetivos, carregarUsuarios])
+    if (aba === 'leads')       carregarLeads()
+  }, [aba, carregarMunicipio, carregarSecretarias, carregarEixos, carregarObjetivos, carregarUsuarios, carregarLeads])
 
   // ── Render ───────────────────────────────────────────────
   return (
@@ -298,6 +348,7 @@ export default function ConfiguracoesPage() {
         <AbaBtn id="eixos"       label="Eixos"       icon={Compass}   ativa={aba==='eixos'}       onClick={() => setAba('eixos')}       />
         <AbaBtn id="objetivos"   label="Objetivos"   icon={Target}    ativa={aba==='objetivos'}   onClick={() => setAba('objetivos')}   />
         <AbaBtn id="usuarios"    label="Usuários"    icon={Users}     ativa={aba==='usuarios'}    onClick={() => setAba('usuarios')}    />
+        <AbaBtn id="leads"       label="Leads"       icon={Inbox}     ativa={aba==='leads'}       onClick={() => setAba('leads')}       />
         <AbaBtn id="plano"       label="Plano"       icon={CreditCard} ativa={aba==='plano'}      onClick={() => setAba('plano')}       />
       </div>
 
@@ -733,6 +784,104 @@ export default function ConfiguracoesPage() {
                       </tr>
                     )
                   })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── ABA LEADS ── */}
+        {aba === 'leads' && (
+          <div className="space-y-5">
+
+            {/* Resumo + filtro */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                {['todos', 'novo', 'contatado', 'convertido', 'descartado'].map(s => {
+                  const qtd = s === 'todos' ? leads.length : leads.filter(l => l.status === s).length
+                  return (
+                    <button key={s} onClick={() => setFiltroLead(s)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        filtroLead === s
+                          ? 'bg-atlia-navy text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:border-atlia-navy'
+                      }`}>
+                      {s === 'todos' ? 'Todos' : leadStatusInfo[s].label} ({qtd})
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-atlia-muted">
+                Leads capturados pelo formulário da página pública
+              </p>
+            </div>
+
+            {/* Tabela */}
+            <div className="card p-0 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-atlia-gray border-b border-gray-100">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Contato</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Município</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Interesse</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Recebido em</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {carregandoLeads ? (
+                    <tr><td colSpan={6} className="py-12 text-center text-atlia-muted">
+                      <Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…
+                    </td></tr>
+                  ) : leads.filter(l => filtroLead === 'todos' || l.status === filtroLead).length === 0 ? (
+                    <tr><td colSpan={6} className="py-12 text-center text-atlia-muted">
+                      <Inbox size={24} className="mx-auto mb-2 opacity-20" />
+                      Nenhum lead {filtroLead !== 'todos' ? `com status "${leadStatusInfo[filtroLead]?.label}"` : 'recebido ainda'}.
+                    </td></tr>
+                  ) : leads.filter(l => filtroLead === 'todos' || l.status === filtroLead).map(l => (
+                    <tr key={l.id} className="hover:bg-atlia-gray/40 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <p className="font-medium text-gray-800">{l.nome}</p>
+                        <p className="text-xs text-atlia-muted">{l.cargo || '—'}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <a href={`mailto:${l.email}`} className="text-xs text-atlia-blue hover:underline">{l.email}</a>
+                          {l.telefone && <span className="text-xs text-gray-500">{l.telefone}</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-gray-600 text-xs">{l.municipio}</td>
+                      <td className="px-4 py-3.5 text-gray-600 text-xs">{leadInteresseLabel[l.interesse] ?? l.interesse}</td>
+                      <td className="px-4 py-3.5 text-gray-500 text-xs whitespace-nowrap">
+                        {new Date(l.criado_em).toLocaleDateString('pt-BR')} {new Date(l.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <select
+                          value={l.status}
+                          onChange={e => atualizarStatusLead(l.id, e.target.value)}
+                          className={`text-xs px-2 py-1 rounded-full font-semibold border-0 outline-none cursor-pointer ${leadStatusInfo[l.status]?.cor ?? 'bg-gray-100 text-gray-500'}`}
+                        >
+                          {Object.entries(leadStatusInfo).map(([valor, info]) => (
+                            <option key={valor} value={valor}>{info.label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        {confirmDelLead === l.id ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <button onClick={() => excluirLead(l.id)}
+                              className="text-xs bg-red-600 text-white px-2.5 py-1 rounded-lg font-semibold hover:bg-red-700">Excluir</button>
+                            <button onClick={() => setConfirmDelLead(null)}
+                              className="text-xs text-gray-500 px-2 py-1 hover:text-gray-700">Cancelar</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmDelLead(l.id)}
+                            className="text-gray-300 hover:text-red-500 transition-colors" title="Excluir lead">
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

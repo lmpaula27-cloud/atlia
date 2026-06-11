@@ -74,17 +74,28 @@ const depoimentos = [
 export default function LandingPage() {
   const [menuAberto, setMenuAberto] = useState(false)
   const [formEnviado, setFormEnviado] = useState(false)
-  const [form, setForm] = useState({ nome: '', municipio: '', cargo: '', email: '', telefone: '' })
+  const [enviando, setEnviando] = useState(false)
+  const [erroForm, setErroForm] = useState('')
+  const [form, setForm] = useState({ nome: '', municipio: '', cargo: '', email: '', telefone: '', interesse: 'demo' })
 
-  function handleForm(e: FormEvent<HTMLFormElement>) {
+  async function handleForm(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    // Abre cliente de e-mail com dados preenchidos
-    const assunto = encodeURIComponent(`Solicitação de demonstração — ${form.municipio}`)
-    const corpo = encodeURIComponent(
-      `Nome: ${form.nome}\nMunicípio: ${form.municipio}\nCargo: ${form.cargo}\nE-mail: ${form.email}\nTelefone: ${form.telefone}`
-    )
-    window.open(`mailto:contato@atlia.com.br?subject=${assunto}&body=${corpo}`)
-    setFormEnviado(true)
+    setEnviando(true)
+    setErroForm('')
+    try {
+      const res = await fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.erro ?? 'Erro ao enviar. Tente novamente.')
+      setFormEnviado(true)
+    } catch (err: any) {
+      setErroForm(err.message ?? 'Erro ao enviar. Tente novamente.')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -467,6 +478,36 @@ export default function LandingPage() {
           <p className="text-center text-sm text-atlia-muted mt-6">
             Todos os planos incluem: implantação em 5 dias úteis + suporte + atualizações automáticas
           </p>
+
+          {/* Consultoria de Planejamento Estratégico */}
+          <div className="mt-10 rounded-2xl bg-gradient-to-br from-atlia-navy to-[#2E75B6] text-white p-8 md:p-10 flex flex-col md:flex-row items-start md:items-center gap-8">
+            <div className="flex-1">
+              <span className="inline-flex items-center gap-2 bg-white/10 text-white/80 text-xs font-semibold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
+                <Target size={11} />
+                Serviço complementar
+              </span>
+              <h3 className="text-2xl font-bold mb-3">Consultoria: criação do Planejamento Estratégico</h3>
+              <p className="text-white/75 leading-relaxed mb-5">
+                Seu município ainda não tem um plano estratégico estruturado? Nossa equipe constrói com a sua gestão:
+                missão, visão e valores, eixos temáticos, objetivos estratégicos, metas e indicadores — tudo já
+                cadastrado e funcionando na plataforma ao final do trabalho.
+              </p>
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/70">
+                <div className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-green-400" /> Oficinas com prefeito e secretários</div>
+                <div className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-green-400" /> Alinhado ao PPA e plano de governo</div>
+                <div className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-green-400" /> Entregue pronto na plataforma</div>
+              </div>
+            </div>
+            <div className="shrink-0 text-center md:text-right w-full md:w-auto">
+              <p className="text-sm text-white/60 mb-1">Investimento</p>
+              <p className="text-2xl font-bold mb-4">Sob consulta</p>
+              <p className="text-xs text-white/50 mb-4 max-w-[200px] md:ml-auto">Proposta personalizada conforme o porte e a maturidade do município</p>
+              <a href="#contato"
+                className="inline-block bg-white text-atlia-navy font-semibold px-6 py-3 rounded-lg hover:bg-atlia-light transition-colors">
+                Solicitar proposta
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -506,7 +547,7 @@ export default function LandingPage() {
                     />
                   </div>
                 ))}
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5">Telefone / WhatsApp</label>
                   <input
                     type="tel"
@@ -516,10 +557,25 @@ export default function LandingPage() {
                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-2 focus:ring-atlia-blue/20 transition-all"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5">Tenho interesse em</label>
+                  <select
+                    value={form.interesse}
+                    onChange={e => setForm(prev => ({ ...prev, interesse: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-2 focus:ring-atlia-blue/20 transition-all bg-white"
+                  >
+                    <option value="demo">Demonstração da plataforma</option>
+                    <option value="consultoria">Consultoria de planejamento estratégico</option>
+                    <option value="ambos">Plataforma + Consultoria</option>
+                  </select>
+                </div>
               </div>
-              <button type="submit"
-                className="mt-6 w-full bg-atlia-navy text-white font-bold py-3.5 rounded-xl hover:bg-atlia-blue transition-colors flex items-center justify-center gap-2 text-sm">
-                Quero uma demonstração gratuita
+              {erroForm && (
+                <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erroForm}</p>
+              )}
+              <button type="submit" disabled={enviando}
+                className="mt-6 w-full bg-atlia-navy text-white font-bold py-3.5 rounded-xl hover:bg-atlia-blue transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-70">
+                {enviando ? 'Enviando…' : 'Quero saber mais'}
                 <ArrowRight size={16} />
               </button>
               <p className="text-center text-xs text-atlia-muted mt-3">
