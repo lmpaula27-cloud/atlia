@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {
   Target, FolderKanban, BarChart3, FileText,
   CheckCircle2, Users,
-  ArrowRight, Phone, Mail,
+  ArrowRight, Mail,
   TrendingUp, Clock, AlertTriangle,
   Star, Menu, X, Layers,
 } from 'lucide-react'
@@ -48,6 +48,10 @@ const funcionalidades = [
     cor: 'bg-teal-600',
   },
 ]
+
+// Depoimentos reais (Prefeitura de Uberlândia / UFU) serão adicionados aqui.
+// Enquanto isso a seção fica oculta — mude para true quando os depoimentos chegarem.
+const MOSTRAR_DEPOIMENTOS = false
 
 const depoimentos = [
   {
@@ -263,10 +267,10 @@ export default function LandingPage() {
       <section className="bg-white border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { valor: '630+',  label: 'projetos monitorados'    },
-            { valor: '16',    label: 'objetivos estratégicos'  },
-            { valor: '331',   label: 'metas acompanhadas'      },
-            { valor: '5 dias',label: 'para implantar'          },
+            { valor: '100%',     label: 'na nuvem, sem instalação' },
+            { valor: 'Ilimitados', label: 'projetos e indicadores' },
+            { valor: '5 dias',   label: 'para implantar'           },
+            { valor: 'PDF',      label: 'relatórios em 1 clique'   },
           ].map(s => (
             <div key={s.label}>
               <p className="text-4xl font-bold text-atlia-navy">{s.valor}</p>
@@ -373,6 +377,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── DEPOIMENTOS ── */}
+      {MOSTRAR_DEPOIMENTOS && (
       <section className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
@@ -397,6 +402,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── PLANOS ── */}
       <section id="planos" className="py-20 px-6 bg-gray-50">
@@ -528,10 +534,11 @@ export default function LandingPage() {
               <Mail size={15} />
               contato@atlia.com.br
             </a>
-            <a href="https://wa.me/5534999999999" className="flex items-center gap-2 text-white/60 hover:text-white text-sm transition-colors">
+            {/* WhatsApp: reativar quando o número oficial + bot estiverem prontos
+            <a href="https://wa.me/55XXXXXXXXXXX" className="flex items-center gap-2 text-white/60 hover:text-white text-sm transition-colors">
               <Phone size={15} />
-              (34) 9 9999-9999
-            </a>
+              (XX) X XXXX-XXXX
+            </a> */}
           </div>
         </div>
       </section>
