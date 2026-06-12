@@ -127,7 +127,7 @@ function calcAtingimento(ind: any): number {
   const meta: number  = ind.meta        ?? 0
   const valor: number = ind.valor_atual  ?? 0
   if (!meta) return 0
-  if (ind.criterio === 'menor_melhor') {
+  if (ind.menor_melhor) {
     if (!valor) return 100
     return Math.min(100, Math.round((meta / valor) * 100))
   }
@@ -165,20 +165,20 @@ async function fetchDadosRelatorio(relId: string): Promise<DadosRelatorio> {
   if (relId === '1') {
     const { data } = await supabase
       .from('projetos')
-      .select('nome, status, pct, orcamento, executado, prazo_fim, responsavel, secretarias(nome)')
+      .select('nome, status, pct, orcamento, executado, data_fim, secretarias(nome)')
       .order('nome')
     projetos = data ?? []
   } else if (relId === '2') {
     const { data } = await supabase
       .from('projetos')
-      .select('nome, status, pct, prazo_fim, responsavel, secretarias(nome)')
+      .select('nome, status, pct, data_fim, secretarias(nome, responsavel)')
       .in('status', ['atrasado', 'atencao'])
       .order('status')
     projetos = data ?? []
   } else if (relId === '3') {
     const { data } = await supabase
       .from('indicadores')
-      .select('nome, valor_atual, meta, unidade, criterio, secretarias(nome)')
+      .select('nome, valor_atual, meta, unidade, menor_melhor, secretarias(nome)')
       .order('nome')
     indicadores = data ?? []
   } else if (relId === '4') {
@@ -277,7 +277,7 @@ async function gerarPDF(rel: Relatorio, dados: DadosRelatorio): Promise<void> {
     autoTable(doc, {
       startY: y,
       head: [['Projeto', 'Secretaria', 'Status', 'Prog.', 'Prazo']],
-      body: projetos.map(p => [p.nome, (p.secretarias as any)?.nome ?? '—', statusLabel[p.status] ?? p.status, `${p.pct ?? 0}%`, fmtData(p.prazo_fim)]),
+      body: projetos.map(p => [p.nome, (p.secretarias as any)?.nome ?? '—', statusLabel[p.status] ?? p.status, `${p.pct ?? 0}%`, fmtData(p.data_fim)]),
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [31, 56, 100], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [245, 247, 250] },
@@ -297,7 +297,7 @@ async function gerarPDF(rel: Relatorio, dados: DadosRelatorio): Promise<void> {
       autoTable(doc, {
         startY: y,
         head: [['Projeto', 'Secretaria', 'Status', 'Prog.', 'Prazo', 'Responsável']],
-        body: projetos.map(p => [p.nome, (p.secretarias as any)?.nome ?? '—', statusLabel[p.status] ?? p.status, `${p.pct ?? 0}%`, fmtData(p.prazo_fim), p.responsavel ?? '—']),
+        body: projetos.map(p => [p.nome, (p.secretarias as any)?.nome ?? '—', statusLabel[p.status] ?? p.status, `${p.pct ?? 0}%`, fmtData(p.data_fim), (p.secretarias as any)?.responsavel ?? '—']),
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [192, 0, 0], textColor: 255, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [255, 245, 245] },
@@ -569,7 +569,7 @@ function Rel1({ dados }: { dados: DadosRelatorio }) {
             (p.secretarias as any)?.nome ?? '—',
             <StatusChip status={p.status} />,
             <PctBar value={p.pct ?? 0} color={p.status === 'atrasado' ? '#b91c1c' : p.status === 'atencao' ? '#d97706' : '#1F3864'} />,
-            fmtData(p.prazo_fim),
+            fmtData(p.data_fim),
           ])}
         />
       </div>
@@ -607,8 +607,8 @@ function Rel2({ dados }: { dados: DadosRelatorio }) {
               (p.secretarias as any)?.nome ?? '—',
               <StatusChip status={p.status} />,
               <PctBar value={p.pct ?? 0} color={p.status === 'atrasado' ? '#b91c1c' : '#d97706'} />,
-              fmtData(p.prazo_fim),
-              p.responsavel ?? '—',
+              fmtData(p.data_fim),
+              (p.secretarias as any)?.responsavel ?? '—',
             ])}
           />
         </div>
