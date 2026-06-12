@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FolderKanban, Target, BarChart3,
-  FileText, Settings, LogOut, ChevronRight, Compass
+  FileText, Settings, LogOut, ChevronRight, Compass, KeyRound
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -80,6 +80,10 @@ export default function Sidebar({ municipio, perfil = 'visualizador' }: { munici
             <span>Configurações</span>
           </Link>
         )}
+        <Link href="/dashboard/alterar-senha" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-white/8 hover:text-white transition-all">
+          <KeyRound size={18} />
+          <span>Alterar senha</span>
+        </Link>
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-all"

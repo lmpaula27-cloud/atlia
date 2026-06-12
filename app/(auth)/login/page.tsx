@@ -25,6 +25,31 @@ export default function LoginPage() {
   const [lembrar, setLembrar]       = useState(false)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro]             = useState('')
+  const [modoRecuperar, setModoRecuperar] = useState(false)
+  const [recEnviado, setRecEnviado]       = useState(false)
+
+  async function handleRecuperar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setErro('')
+    if (!email) {
+      setErro('Informe o e-mail cadastrado para receber o link.')
+      return
+    }
+    setCarregando(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/alterar-senha`,
+      })
+      if (error) {
+        setErro('Não foi possível enviar o link. Confira o e-mail e tente novamente.')
+        return
+      }
+      setRecEnviado(true)
+    } finally {
+      setCarregando(false)
+    }
+  }
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -121,10 +146,68 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1.5">Acesse sua conta</h1>
-            <p className="text-sm text-gray-500">Entre com suas credenciais para acessar o painel municipal.</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1.5">
+              {modoRecuperar ? 'Recuperar senha' : 'Acesse sua conta'}
+            </h1>
+            <p className="text-sm text-gray-500">
+              {modoRecuperar
+                ? 'Informe o e-mail cadastrado e enviaremos um link para redefinir sua senha.'
+                : 'Entre com suas credenciais para acessar o painel municipal.'}
+            </p>
           </div>
 
+          {/* ── Modo recuperação de senha ── */}
+          {modoRecuperar ? (
+            recEnviado ? (
+              <div className="text-center py-6">
+                <CheckCircle2 size={44} className="text-atlia-green mx-auto mb-3" />
+                <h2 className="font-bold text-gray-900">Link enviado!</h2>
+                <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
+                  Se <strong>{email}</strong> estiver cadastrado, você receberá um e-mail
+                  com o link para criar uma nova senha. Olhe também a caixa de spam.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setModoRecuperar(false); setRecEnviado(false); setErro('') }}
+                  className="mt-6 inline-flex items-center gap-2 text-sm text-atlia-blue hover:underline font-medium"
+                >
+                  <ArrowLeft size={14} /> Voltar para o login
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleRecuperar} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">E-mail cadastrado</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="voce@municipio.mg.gov.br"
+                    autoComplete="email"
+                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none focus:border-atlia-blue focus:ring-2 focus:ring-atlia-blue/10 transition-all"
+                  />
+                </div>
+                {erro && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={carregando}
+                  className="w-full flex items-center justify-center gap-2 bg-atlia-navy text-white font-semibold py-2.5 rounded-xl hover:bg-atlia-navy/90 transition-colors disabled:opacity-70 text-sm"
+                >
+                  {carregando ? <Loader2 size={15} className="animate-spin" /> : null}
+                  Enviar link de recuperação
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setModoRecuperar(false); setErro('') }}
+                  className="w-full flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-atlia-navy transition-colors py-1"
+                >
+                  <ArrowLeft size={14} /> Voltar para o login
+                </button>
+              </form>
+            )
+          ) : (
           <form onSubmit={handleLogin} className="space-y-4">
 
             <div>
@@ -142,7 +225,11 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-medium text-gray-700">Senha</label>
-                <button type="button" className="text-xs text-atlia-blue hover:underline">
+                <button
+                  type="button"
+                  onClick={() => { setModoRecuperar(true); setErro('') }}
+                  className="text-xs text-atlia-blue hover:underline"
+                >
                   Esqueci minha senha
                 </button>
               </div>
@@ -193,6 +280,7 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+          )}
 
           <div className="relative my-7">
             <div className="absolute inset-0 flex items-center">
