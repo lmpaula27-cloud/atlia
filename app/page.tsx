@@ -326,7 +326,7 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {funcionalidades.map(({ icon: Icon, titulo, descricao, cor }) => (
-              <div key={titulo} className="group rounded-xl border border-gray-100 p-6 hover:shadow-md hover:border-atlia-blue/30 transition-all cursor-pointer">
+              <div key={titulo} className="group rounded-xl border border-gray-100 p-6 hover:shadow-md hover:border-atlia-blue/30 hover:-translate-y-0.5 transition-all">
                 <div className={`w-10 h-10 ${cor} rounded-xl flex items-center justify-center mb-4`}>
                   <Icon size={18} className="text-white" />
                 </div>
