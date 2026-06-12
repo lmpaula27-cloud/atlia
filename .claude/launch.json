@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "atlia-dev",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "C:\\Program Files\\nodejs\\npm.cmd", "run", "dev"],
       "port": 3000
     }
   ]
