@@ -1,5 +1,5 @@
 'use client'
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -27,6 +27,16 @@ export default function LoginPage() {
   const [erro, setErro]             = useState('')
   const [modoRecuperar, setModoRecuperar] = useState(false)
   const [recEnviado, setRecEnviado]       = useState(false)
+
+  // Mensagens vindas de redirecionamentos (ex.: link de convite expirado)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('error') === 'link_expirado') {
+      setErro('O link que você usou expirou ou já foi utilizado. Peça um novo convite ao administrador ou use "Esqueci minha senha".')
+    } else if (params.get('error') === 'auth') {
+      setErro('Não foi possível validar o acesso. Tente novamente.')
+    }
+  }, [])
 
   async function handleRecuperar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()

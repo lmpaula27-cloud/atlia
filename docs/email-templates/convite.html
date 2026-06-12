@@ -35,7 +35,7 @@
         <!-- Botão -->
         <tr>
           <td align="center" style="padding:0 40px 28px 40px;">
-            <a href="{{ .ConfirmationURL }}"
+            <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/dashboard/alterar-senha"
                style="display:inline-block;background-color:#1F3864;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;padding:14px 36px;border-radius:10px;">
               Criar minha senha de acesso
             </a>
