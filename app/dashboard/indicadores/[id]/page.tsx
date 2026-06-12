@@ -70,7 +70,7 @@ export default function IndicadorDetalhePage({ params }: { params: { id: string 
 
   const podeEditar = !usuario.carregando && indicador && (
     usuario.perfil === 'admin' ||
-    (usuario.perfil === 'gestor' && indicador.secretaria_id === usuario.secretaria_id)
+    (usuario.perfil === 'gestor' && usuario.secretaria_ids.includes(indicador.secretaria_id))
   )
   const podeExcluir = !usuario.carregando && usuario.perfil === 'admin'
 
@@ -497,6 +497,7 @@ export default function IndicadorDetalhePage({ params }: { params: { id: string 
       >
         <IndicadorForm
           indicadorInicial={indicadorEditavel}
+          secretariasPermitidas={usuario.perfil === 'gestor' ? usuario.secretaria_ids : undefined}
           onSuccess={(msg) => {
             setEditAberto(false)
             setSucesso(msg)

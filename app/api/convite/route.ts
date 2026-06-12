@@ -3,11 +3,16 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { email, nome, perfil, secretaria_id } = body
+  const { email, nome, perfil, secretaria_id, secretaria_ids } = body
 
   if (!email || !nome || !perfil) {
     return NextResponse.json({ erro: 'E-mail, nome e perfil são obrigatórios.' }, { status: 400 })
   }
+
+  // Aceita tanto o formato novo (array) quanto o legado (único)
+  const idsSecretarias: string[] = Array.isArray(secretaria_ids)
+    ? secretaria_ids.filter(Boolean)
+    : secretaria_id ? [secretaria_id] : []
 
   const url         = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -48,7 +53,7 @@ export async function POST(request: NextRequest) {
     municipio_id: municipio.id,
     nome,
     perfil,
-    secretaria_id: secretaria_id || null,
+    secretaria_id: idsSecretarias[0] ?? null,
     ativo:         true,
   })
 
@@ -56,6 +61,13 @@ export async function POST(request: NextRequest) {
     // Reverte o invite se o perfil falhar
     await supabaseAdmin.auth.admin.deleteUser(userId)
     return NextResponse.json({ erro: profileError.message }, { status: 500 })
+  }
+
+  // 4. Vincula as secretarias (acesso múltiplo)
+  if (idsSecretarias.length > 0) {
+    await supabaseAdmin.from('usuarios_secretarias').insert(
+      idsSecretarias.map((sid: string) => ({ usuario_id: userId, secretaria_id: sid }))
+    )
   }
 
   return NextResponse.json({ sucesso: true, userId })

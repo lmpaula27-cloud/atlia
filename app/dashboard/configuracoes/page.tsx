@@ -31,6 +31,7 @@ interface UsuarioRow {
   id: string; nome: string; cargo: string | null
   perfil: 'admin' | 'gestor' | 'visualizador'; ativo: boolean
   secretaria_nome: string | null; email?: string
+  secretaria_ids: string[]; secretaria_nomes: string[]
 }
 interface LeadRow {
   id: string; nome: string; municipio: string; cargo: string | null
@@ -227,26 +228,68 @@ export default function ConfiguracoesPage() {
   const [emailConvite, setEmailConvite]   = useState('')
   const [nomeConvite, setNomeConvite]     = useState('')
   const [perfilConvite, setPerfilConvite] = useState<'admin' | 'gestor' | 'visualizador'>('gestor')
-  const [secConvite, setSecConvite]       = useState('')
+  const [secsConvite, setSecsConvite]     = useState<string[]>([])
   const [erroConvite, setErroConvite]     = useState('')
+  const [editandoSecsDe, setEditandoSecsDe] = useState<string | null>(null)
+  const [secsEdicao, setSecsEdicao]         = useState<string[]>([])
+  const [salvandoSecs, setSalvandoSecs]     = useState(false)
 
   const carregarUsuarios = useCallback(async () => {
     setCarregandoUsr(true)
     const supabase = createClient()
     const { data } = await supabase
       .from('usuarios')
-      .select('id, nome, cargo, perfil, ativo, secretaria_id, secretarias(nome)')
+      .select('id, nome, cargo, perfil, ativo, secretaria_id, secretarias(nome), usuarios_secretarias(secretaria_id, secretarias(nome))')
       .order('nome')
-    setUsuarios((data ?? []).map((u: any) => ({
-      id:             u.id,
-      nome:           u.nome,
-      cargo:          u.cargo,
-      perfil:         u.perfil,
-      ativo:          u.ativo,
-      secretaria_nome: u.secretarias?.nome ?? null,
-    })))
+    setUsuarios((data ?? []).map((u: any) => {
+      const vinculos: any[] = u.usuarios_secretarias ?? []
+      let ids: string[]   = vinculos.map(v => v.secretaria_id)
+      let nomes: string[] = vinculos.map(v => v.secretarias?.nome ?? '—')
+      // fallback legado: usa secretaria_id único se não houver vínculos
+      if (ids.length === 0 && u.secretaria_id) {
+        ids   = [u.secretaria_id]
+        nomes = [u.secretarias?.nome ?? '—']
+      }
+      return {
+        id:              u.id,
+        nome:            u.nome,
+        cargo:           u.cargo,
+        perfil:          u.perfil,
+        ativo:           u.ativo,
+        secretaria_nome: nomes[0] ?? null,
+        secretaria_ids:  ids,
+        secretaria_nomes: nomes,
+      }
+    }))
     setCarregandoUsr(false)
   }, [])
+
+  function toggleSecConvite(id: string) {
+    setSecsConvite(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id])
+  }
+
+  function abrirEdicaoSecs(u: UsuarioRow) {
+    setEditandoSecsDe(u.id)
+    setSecsEdicao(u.secretaria_ids)
+  }
+
+  async function salvarSecsUsuario(usuarioId: string) {
+    setSalvandoSecs(true)
+    const supabase = createClient()
+    // Substitui os vínculos: remove todos e insere os selecionados
+    await supabase.from('usuarios_secretarias').delete().eq('usuario_id', usuarioId)
+    if (secsEdicao.length > 0) {
+      await supabase.from('usuarios_secretarias').insert(
+        secsEdicao.map(sid => ({ usuario_id: usuarioId, secretaria_id: sid }))
+      )
+    }
+    // Mantém o campo legado coerente
+    await supabase.from('usuarios').update({ secretaria_id: secsEdicao[0] ?? null }).eq('id', usuarioId)
+    setSalvandoSecs(false)
+    setEditandoSecsDe(null)
+    carregarUsuarios()
+    setSucesso('Secretarias do usuário atualizadas.')
+  }
 
   async function convidarUsuario(e: React.FormEvent) {
     e.preventDefault()
@@ -261,10 +304,10 @@ export default function ConfiguracoesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email:        emailConvite.trim(),
-          nome:         nomeConvite.trim(),
-          perfil:       perfilConvite,
-          secretaria_id: perfilConvite === 'gestor' ? secConvite || null : null,
+          email:         emailConvite.trim(),
+          nome:          nomeConvite.trim(),
+          perfil:        perfilConvite,
+          secretaria_ids: perfilConvite === 'gestor' ? secsConvite : [],
         }),
       })
       const json = await res.json()
@@ -272,7 +315,7 @@ export default function ConfiguracoesPage() {
       setEmailConvite('')
       setNomeConvite('')
       setPerfilConvite('gestor')
-      setSecConvite('')
+      setSecsConvite([])
       carregarUsuarios()
       setSucesso(`Convite enviado para ${emailConvite}!`)
     } catch (err: any) {
@@ -716,14 +759,26 @@ export default function ConfiguracoesPage() {
                     </select>
                   </div>
                   {perfilConvite === 'gestor' && (
-                    <div>
-                      <label className={labelCls}>Secretaria</label>
-                      <select value={secConvite} onChange={e => setSecConvite(e.target.value)} className={inputCls + ' bg-white'}>
-                        <option value="">— Selecionar —</option>
+                    <div className="col-span-2">
+                      <label className={labelCls}>
+                        Secretarias com acesso de gestão
+                        <span className="normal-case font-normal text-atlia-muted ml-2">
+                          ({secsConvite.length} selecionada{secsConvite.length !== 1 ? 's' : ''})
+                        </span>
+                      </label>
+                      <div className="border border-gray-200 rounded-lg p-3 max-h-44 overflow-y-auto grid grid-cols-2 gap-x-4 gap-y-1.5">
                         {secretarias.filter(s => s.ativa).map(s => (
-                          <option key={s.id} value={s.id}>{s.nome}</option>
+                          <label key={s.id} className="flex items-center gap-2 cursor-pointer select-none py-0.5">
+                            <input
+                              type="checkbox"
+                              checked={secsConvite.includes(s.id)}
+                              onChange={() => toggleSecConvite(s.id)}
+                              className="rounded border-gray-300 text-atlia-navy focus:ring-atlia-blue/30"
+                            />
+                            <span className="text-sm text-gray-700">{s.nome}</span>
+                          </label>
                         ))}
-                      </select>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -771,7 +826,48 @@ export default function ConfiguracoesPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-gray-600 text-xs">{u.secretaria_nome ?? '—'}</td>
+                        <td className="px-4 py-3.5 text-gray-600 text-xs">
+                          {editandoSecsDe === u.id ? (
+                            <div className="space-y-2">
+                              <div className="border border-gray-200 rounded-lg p-2 max-h-36 overflow-y-auto bg-white space-y-1">
+                                {secretarias.filter(s => s.ativa).map(s => (
+                                  <label key={s.id} className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={secsEdicao.includes(s.id)}
+                                      onChange={() => setSecsEdicao(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
+                                      className="rounded border-gray-300 text-atlia-navy focus:ring-atlia-blue/30"
+                                    />
+                                    <span className="text-xs text-gray-700">{s.nome}</span>
+                                  </label>
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button onClick={() => salvarSecsUsuario(u.id)} disabled={salvandoSecs}
+                                  className="text-xs bg-atlia-navy text-white px-2.5 py-1 rounded-lg font-semibold hover:bg-atlia-blue disabled:opacity-60">
+                                  {salvandoSecs ? 'Salvando…' : 'Salvar'}
+                                </button>
+                                <button onClick={() => setEditandoSecsDe(null)}
+                                  className="text-xs text-gray-500 px-2 py-1 hover:text-gray-700">Cancelar</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {u.secretaria_nomes.length === 0
+                                ? <span>—</span>
+                                : u.secretaria_nomes.map(n => (
+                                    <span key={n} className="bg-atlia-light text-atlia-navy px-2 py-0.5 rounded-full text-xs font-medium">{n}</span>
+                                  ))
+                              }
+                              {u.perfil === 'gestor' && (
+                                <button onClick={() => abrirEdicaoSecs(u)} title="Editar secretarias"
+                                  className="text-gray-300 hover:text-atlia-navy transition-colors ml-1">
+                                  <Pencil size={13} />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3.5 text-center">
                           <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${pi.cor}`}>{pi.label}</span>
                         </td>

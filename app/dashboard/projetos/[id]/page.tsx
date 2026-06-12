@@ -101,10 +101,10 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
   const [deletandoMarco, setDeletandoMarco] = useState(false)
   const usuario = useCurrentUser()
 
-  // Um usuário pode editar se for admin, ou se for gestor da mesma secretaria do projeto
+  // Um usuário pode editar se for admin, ou se for gestor com acesso à secretaria do projeto
   const podeEditar = !usuario.carregando && projeto && (
     usuario.perfil === 'admin' ||
-    (usuario.perfil === 'gestor' && projeto.secretaria_id === usuario.secretaria_id)
+    (usuario.perfil === 'gestor' && usuario.secretaria_ids.includes(projeto.secretaria_id))
   )
   const podeExcluir = !usuario.carregando && usuario.perfil === 'admin'
 
@@ -674,6 +674,7 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
       >
         <ProjetoForm
           projetoInicial={projetoParaEditavel()}
+          secretariasPermitidas={usuario.perfil === 'gestor' ? usuario.secretaria_ids : undefined}
           onSuccess={(msg) => {
             setEditAberto(false)
             setSucesso(msg)

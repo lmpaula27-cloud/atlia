@@ -6,12 +6,15 @@ export interface CurrentUser {
   id: string
   nome: string
   perfil: 'admin' | 'gestor' | 'visualizador'
+  /** @deprecated use secretaria_ids — mantido por compatibilidade */
   secretaria_id: string | null
+  /** Secretarias às quais o usuário tem acesso de gestão */
+  secretaria_ids: string[]
   carregando: boolean
 }
 
 const defaultUser: CurrentUser = {
-  id: '', nome: '', perfil: 'visualizador', secretaria_id: null, carregando: true,
+  id: '', nome: '', perfil: 'visualizador', secretaria_id: null, secretaria_ids: [], carregando: true,
 }
 
 export function useCurrentUser(): CurrentUser {
@@ -27,19 +30,29 @@ export function useCurrentUser(): CurrentUser {
         return
       }
 
-      const { data } = await supabase
-        .from('usuarios')
-        .select('id, nome, perfil, secretaria_id')
-        .eq('id', authUser.id)
-        .single()
+      const [{ data }, { data: vinculos }] = await Promise.all([
+        supabase
+          .from('usuarios')
+          .select('id, nome, perfil, secretaria_id')
+          .eq('id', authUser.id)
+          .single(),
+        supabase
+          .from('usuarios_secretarias')
+          .select('secretaria_id')
+          .eq('usuario_id', authUser.id),
+      ])
 
       if (data) {
+        const ids: string[] = (vinculos ?? []).map((v: any) => v.secretaria_id as string)
+        // fallback: se a tabela de vínculos estiver vazia, usa o campo legado
+        if (ids.length === 0 && data.secretaria_id) ids.push(data.secretaria_id)
         setUser({
-          id:           data.id,
-          nome:         data.nome,
-          perfil:       data.perfil,
-          secretaria_id: data.secretaria_id,
-          carregando:   false,
+          id:            data.id,
+          nome:          data.nome,
+          perfil:        data.perfil,
+          secretaria_id: ids[0] ?? null,
+          secretaria_ids: ids,
+          carregando:    false,
         })
       } else {
         setUser({ ...defaultUser, id: authUser.id, carregando: false })

@@ -292,7 +292,7 @@ export default function ProjetosPage() {
         onFechar={() => setFormAberto(false)}
       >
         <ProjetoForm
-          secretariaInicial={usuario.perfil === 'gestor' ? usuario.secretaria_id ?? undefined : undefined}
+          secretariasPermitidas={usuario.perfil === 'gestor' ? usuario.secretaria_ids : undefined}
           onSuccess={(msg) => {
             setFormAberto(false)
             setSucesso(msg)

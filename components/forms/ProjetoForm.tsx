@@ -28,6 +28,8 @@ interface Props {
   projetoInicial?: ProjetoEditavel
   /** Se informado, bloqueia o campo secretaria (para gestores) */
   secretariaInicial?: string
+  /** Gestor: restringe o select às secretarias com acesso; se houver só 1, o campo fica travado */
+  secretariasPermitidas?: string[]
   onSuccess: (mensagem: string) => void
   onCancelar: () => void
 }
@@ -56,13 +58,17 @@ const tipoGanhoOpts = [
 const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-atlia-blue focus:ring-2 focus:ring-atlia-blue/10 transition-all placeholder-gray-400'
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1.5'
 
-export default function ProjetoForm({ projetoInicial, secretariaInicial, onSuccess, onCancelar }: Props) {
+export default function ProjetoForm({ projetoInicial, secretariaInicial, secretariasPermitidas, onSuccess, onCancelar }: Props) {
   const editando = !!projetoInicial?.id
+
+  // Secretaria travada: prop legada OU gestor com acesso a uma única secretaria
+  const secretariaTravada: string | undefined =
+    secretariaInicial ?? (secretariasPermitidas?.length === 1 ? secretariasPermitidas[0] : undefined)
 
   // ── Estado do formulário ─────────────────────────────────────
   const [nome,         setNome]         = useState(projetoInicial?.nome ?? '')
   const [descricao,    setDescricao]    = useState(projetoInicial?.descricao ?? '')
-  const [secretariaId, setSecretariaId] = useState(projetoInicial?.secretaria_id ?? secretariaInicial ?? '')
+  const [secretariaId, setSecretariaId] = useState(projetoInicial?.secretaria_id ?? secretariaTravada ?? '')
   const [objetivoId,   setObjetivoId]   = useState(projetoInicial?.objetivo_id ?? '')
   const [status,       setStatus]       = useState(projetoInicial?.status ?? 'nao_iniciado')
   const [prioridade,   setPrioridade]   = useState(projetoInicial?.prioridade ?? 'media')
@@ -224,16 +230,21 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, onSucce
             <select
               value={secretariaId}
               onChange={e => setSecretariaId(e.target.value)}
-              disabled={carregandoOpts || !!secretariaInicial}
-              className={inputCls + ' bg-white' + (secretariaInicial ? ' opacity-70 cursor-not-allowed' : '')}
+              disabled={carregandoOpts || !!secretariaTravada}
+              className={inputCls + ' bg-white' + (secretariaTravada ? ' opacity-70 cursor-not-allowed' : '')}
             >
               <option value="">— Selecionar secretaria —</option>
-              {secretarias.map(s => (
-                <option key={s.id} value={s.id}>{s.nome}</option>
-              ))}
+              {secretarias
+                .filter(s => !secretariasPermitidas || secretariasPermitidas.includes(s.id))
+                .map(s => (
+                  <option key={s.id} value={s.id}>{s.nome}</option>
+                ))}
             </select>
-            {secretariaInicial && (
+            {secretariaTravada && (
               <p className="text-xs text-atlia-muted mt-1">Fixado pela sua secretaria.</p>
+            )}
+            {!secretariaTravada && secretariasPermitidas && secretariasPermitidas.length > 1 && (
+              <p className="text-xs text-atlia-muted mt-1">Exibindo apenas as secretarias sob sua gestão.</p>
             )}
           </div>
           <div>

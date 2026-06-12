@@ -253,7 +253,7 @@ export default function IndicadoresPage() {
         onFechar={() => setFormAberto(false)}
       >
         <IndicadorForm
-          secretariaInicial={usuario.perfil === 'gestor' ? usuario.secretaria_id ?? undefined : undefined}
+          secretariasPermitidas={usuario.perfil === 'gestor' ? usuario.secretaria_ids : undefined}
           onSuccess={(msg) => {
             setFormAberto(false)
             setSucesso(msg)
