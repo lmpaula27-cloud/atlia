@@ -26,18 +26,7 @@ export async function POST(request: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  // 1. Convidar via Supabase Auth (envia e-mail com link de acesso)
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    data: { nome },
-  })
-
-  if (authError) {
-    return NextResponse.json({ erro: authError.message }, { status: 400 })
-  }
-
-  const userId = authData.user.id
-
-  // 2. Buscar o municipio_id (single tenant — retorna apenas um)
+  // 1. Buscar o municipio_id (single tenant — retorna apenas um)
   const { data: municipio } = await supabaseAdmin
     .from('municipios')
     .select('id')
@@ -47,28 +36,73 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ erro: 'Município não encontrado.' }, { status: 500 })
   }
 
-  // 3. Criar perfil em usuarios (RLS bypassed com service role)
-  const { error: profileError } = await supabaseAdmin.from('usuarios').insert({
-    id:           userId,
-    municipio_id: municipio.id,
-    nome,
-    perfil,
-    secretaria_id: idsSecretarias[0] ?? null,
-    ativo:         true,
+  // 2. Convidar via Supabase Auth (envia e-mail com link de acesso)
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    data: { nome },
   })
 
-  if (profileError) {
-    // Reverte o invite se o perfil falhar
-    await supabaseAdmin.auth.admin.deleteUser(userId)
-    return NextResponse.json({ erro: profileError.message }, { status: 500 })
+  let userId: string
+  let jaExistia = false
+
+  if (authError) {
+    // Se o e-mail já existe, busca o usuário existente e reenvia o convite via generateLink
+    if (authError.message.toLowerCase().includes('already been registered') || authError.status === 422) {
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+      const existing = existingUsers?.users?.find(u => u.email === email)
+      if (!existing) {
+        return NextResponse.json({ erro: 'Usuário já registrado mas não encontrado.' }, { status: 400 })
+      }
+      userId = existing.id
+      jaExistia = true
+
+      // Gera novo link de convite e envia e-mail
+      await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { data: { nome } },
+      })
+    } else {
+      return NextResponse.json({ erro: authError.message }, { status: 400 })
+    }
+  } else {
+    userId = authData.user.id
   }
 
-  // 4. Vincula as secretarias (acesso múltiplo)
+  // 3. Criar perfil em usuarios se ainda não existe
+  if (!jaExistia) {
+    const { error: profileError } = await supabaseAdmin.from('usuarios').insert({
+      id:           userId,
+      municipio_id: municipio.id,
+      nome,
+      perfil,
+      secretaria_id: idsSecretarias[0] ?? null,
+      ativo:         true,
+    })
+
+    if (profileError) {
+      // Reverte o invite se o perfil falhar
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      return NextResponse.json({ erro: profileError.message }, { status: 500 })
+    }
+  } else {
+    // Atualiza perfil e nome para o usuário já existente
+    await supabaseAdmin.from('usuarios').upsert({
+      id:           userId,
+      municipio_id: municipio.id,
+      nome,
+      perfil,
+      secretaria_id: idsSecretarias[0] ?? null,
+      ativo:         true,
+    }, { onConflict: 'id' })
+  }
+
+  // 4. Vincula as secretarias (acesso múltiplo) — upsert para não duplicar
   if (idsSecretarias.length > 0) {
-    await supabaseAdmin.from('usuarios_secretarias').insert(
-      idsSecretarias.map((sid: string) => ({ usuario_id: userId, secretaria_id: sid }))
+    await supabaseAdmin.from('usuarios_secretarias').upsert(
+      idsSecretarias.map((sid: string) => ({ usuario_id: userId, secretaria_id: sid })),
+      { onConflict: 'usuario_id,secretaria_id' }
     )
   }
 
-  return NextResponse.json({ sucesso: true, userId })
+  return NextResponse.json({ sucesso: true, userId, jaExistia })
 }
