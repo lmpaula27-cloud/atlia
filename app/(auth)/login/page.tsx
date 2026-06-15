@@ -35,6 +35,8 @@ export default function LoginPage() {
       setErro('O link que você usou expirou ou já foi utilizado. Peça um novo convite ao administrador ou use "Esqueci minha senha".')
     } else if (params.get('error') === 'auth') {
       setErro('Não foi possível validar o acesso. Tente novamente.')
+    } else if (params.get('motivo') === 'inatividade') {
+      setErro('Sua sessão foi encerrada por inatividade. Faça login novamente para continuar.')
     }
   }, [])
 

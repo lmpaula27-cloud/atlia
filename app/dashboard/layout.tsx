@@ -1,4 +1,5 @@
 import Sidebar from '@/components/Sidebar'
+import InactivityTimeout from '@/components/InactivityTimeout'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="min-h-screen bg-atlia-gray">
       <Sidebar municipio={municipioNome} perfil={perfil} />
+      <InactivityTimeout />
       <main className="ml-64 min-h-screen flex flex-col">
         {children}
       </main>
