@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('origin') ?? 'https://www.atlia.com.br'
+
   const body = await request.json()
   const { email, nome, perfil, secretaria_id, secretaria_ids } = body
 
@@ -55,11 +57,10 @@ export async function POST(request: NextRequest) {
       userId = existing.id
       jaExistia = true
 
-      // Gera novo link de convite e envia e-mail
-      await supabaseAdmin.auth.admin.generateLink({
-        type: 'invite',
-        email,
-        options: { data: { nome } },
+      // Envia e-mail de redefinição de senha — única forma de enviar e-mail para usuário já existente.
+      // O link aponta para /dashboard/alterar-senha, comportamento idêntico ao convite normal.
+      await supabaseAdmin.auth.resetPasswordForEmail(email, {
+        redirectTo: `${origin}/auth/confirm?type=recovery&next=/dashboard/alterar-senha`,
       })
     } else {
       return NextResponse.json({ erro: authError.message }, { status: 400 })
