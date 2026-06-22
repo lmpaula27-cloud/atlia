@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FolderKanban, Target, BarChart3,
-  FileText, Settings, LogOut, ChevronRight, Compass, KeyRound
+  FileText, Settings, LogOut, ChevronRight, Compass, KeyRound, Flag
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +12,7 @@ const nav = [
   { href: '/dashboard',                    label: 'Painel Executivo',   icon: LayoutDashboard },
   { href: '/dashboard/mapa-estrategico',   label: 'Mapa Estratégico',   icon: Compass         },
   { href: '/dashboard/objetivos',          label: 'Objetivos',          icon: Target          },
+  { href: '/dashboard/metas',              label: 'Metas',               icon: Flag            },
   { href: '/dashboard/projetos',           label: 'Projetos',           icon: FolderKanban    },
   { href: '/dashboard/indicadores',        label: 'Indicadores',        icon: BarChart3       },
   { href: '/dashboard/relatorios',         label: 'Relatórios',         icon: FileText        },
