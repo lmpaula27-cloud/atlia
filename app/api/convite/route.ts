@@ -47,21 +47,31 @@ export async function POST(request: NextRequest) {
   let jaExistia = false
 
   if (authError) {
-    // Se o e-mail já existe, busca o usuário existente e reenvia o convite via generateLink
     if (authError.message.toLowerCase().includes('already been registered') || authError.status === 422) {
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
       const existing = existingUsers?.users?.find(u => u.email === email)
       if (!existing) {
         return NextResponse.json({ erro: 'Usuário já registrado mas não encontrado.' }, { status: 400 })
       }
-      userId = existing.id
-      jaExistia = true
 
-      // Envia e-mail de redefinição de senha — única forma de enviar e-mail para usuário já existente.
-      // O link aponta para /dashboard/alterar-senha, comportamento idêntico ao convite normal.
-      await supabaseAdmin.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/auth/confirm?type=recovery&next=/dashboard/alterar-senha`,
-      })
+      if (!existing.email_confirmed_at) {
+        // Nunca definiu senha → apaga e reenvida convite limpo
+        await supabaseAdmin.auth.admin.deleteUser(existing.id)
+        await supabaseAdmin.from('usuarios').delete().eq('id', existing.id)
+
+        const { data: reInvite, error: reErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          data: { nome },
+        })
+        if (reErr) return NextResponse.json({ erro: reErr.message }, { status: 400 })
+        userId = reInvite.user.id
+      } else {
+        // Já tem conta ativa → envia link de redefinição de senha
+        userId = existing.id
+        jaExistia = true
+        await supabaseAdmin.auth.resetPasswordForEmail(email, {
+          redirectTo: `${origin}/auth/confirm?type=recovery&next=/dashboard/alterar-senha`,
+        })
+      }
     } else {
       return NextResponse.json({ erro: authError.message }, { status: 400 })
     }

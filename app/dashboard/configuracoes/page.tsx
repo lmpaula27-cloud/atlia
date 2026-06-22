@@ -5,15 +5,16 @@ import SlidePanel from '@/components/ui/SlidePanel'
 import SecretariaForm, { type SecretariaEditavel } from '@/components/forms/SecretariaForm'
 import EixoForm, { type EixoEditavel } from '@/components/forms/EixoForm'
 import ObjetivoForm, { type ObjetivoEditavel } from '@/components/forms/ObjetivoForm'
+import MetaForm, { type MetaEditavel } from '@/components/forms/MetaForm'
 import {
-  Building2, Users, CreditCard, Layers, Compass, Target,
+  Building2, Users, CreditCard, Layers, Compass, Target, Flag,
   Save, Plus, Pencil, Trash2, CheckCircle2,
   Crown, Phone, Mail, Globe, Calendar,
   AlertCircle, Loader2, XCircle, Inbox,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'usuarios' | 'leads' | 'plano'
+type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'metas' | 'usuarios' | 'leads' | 'plano'
 
 // ── Tipos ──────────────────────────────────────────────────────
 interface SecretariaRow {
@@ -26,6 +27,10 @@ interface EixoRow {
 interface ObjetivoRow {
   id: string; nome: string; descricao: string | null
   eixo_id: string; eixo_nome: string; eixo_cor: string; pct_atual: number
+}
+interface MetaRow {
+  id: string; nome: string; descricao: string | null
+  objetivo_id: string; objetivo_nome: string; pct_atual: number
 }
 interface UsuarioRow {
   id: string; nome: string; cargo: string | null
@@ -221,6 +226,39 @@ export default function ConfiguracoesPage() {
     setSucesso('Objetivo excluído.')
   }
 
+  // ── Metas ─────────────────────────────────────────────────
+  const [metas, setMetas]                 = useState<MetaRow[]>([])
+  const [carregandoMet, setCarregandoMet] = useState(true)
+  const [formMetAberto, setFormMetAberto] = useState(false)
+  const [metaEdit, setMetaEdit]           = useState<MetaEditavel | undefined>()
+  const [confirmDelMet, setConfirmDelMet] = useState<string | null>(null)
+
+  const carregarMetas = useCallback(async () => {
+    setCarregandoMet(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('metas')
+      .select('id, nome, descricao, pct_atual, objetivo_id, objetivos(nome)')
+      .order('objetivo_id')
+    setMetas((data ?? []).map((m: any) => ({
+      id:            m.id,
+      nome:          m.nome,
+      descricao:     m.descricao,
+      objetivo_id:   m.objetivo_id,
+      objetivo_nome: m.objetivos?.nome ?? '—',
+      pct_atual:     m.pct_atual,
+    })))
+    setCarregandoMet(false)
+  }, [])
+
+  async function excluirMeta(id: string) {
+    const supabase = createClient()
+    await supabase.from('metas').delete().eq('id', id)
+    setConfirmDelMet(null)
+    carregarMetas()
+    setSucesso('Meta excluída.')
+  }
+
   // ── Usuários ──────────────────────────────────────────────
   const [usuarios, setUsuarios]           = useState<UsuarioRow[]>([])
   const [carregandoUsr, setCarregandoUsr] = useState(true)
@@ -368,9 +406,10 @@ export default function ConfiguracoesPage() {
     if (aba === 'secretarias') carregarSecretarias()
     if (aba === 'eixos')       carregarEixos()
     if (aba === 'objetivos')  { carregarObjetivos(); carregarEixos() }
+    if (aba === 'metas')      { carregarMetas();     carregarObjetivos() }
     if (aba === 'usuarios')   { carregarUsuarios();  carregarSecretarias() }
     if (aba === 'leads')       carregarLeads()
-  }, [aba, carregarMunicipio, carregarSecretarias, carregarEixos, carregarObjetivos, carregarUsuarios, carregarLeads])
+  }, [aba, carregarMunicipio, carregarSecretarias, carregarEixos, carregarObjetivos, carregarMetas, carregarUsuarios, carregarLeads])
 
   // ── Render ───────────────────────────────────────────────
   return (
@@ -390,6 +429,7 @@ export default function ConfiguracoesPage() {
         <AbaBtn id="secretarias" label="Secretarias" icon={Layers}    ativa={aba==='secretarias'} onClick={() => setAba('secretarias')} />
         <AbaBtn id="eixos"       label="Eixos"       icon={Compass}   ativa={aba==='eixos'}       onClick={() => setAba('eixos')}       />
         <AbaBtn id="objetivos"   label="Objetivos"   icon={Target}    ativa={aba==='objetivos'}   onClick={() => setAba('objetivos')}   />
+        <AbaBtn id="metas"       label="Metas"       icon={Flag}      ativa={aba==='metas'}       onClick={() => setAba('metas')}       />
         <AbaBtn id="usuarios"    label="Usuários"    icon={Users}     ativa={aba==='usuarios'}    onClick={() => setAba('usuarios')}    />
         <AbaBtn id="leads"       label="Leads"       icon={Inbox}     ativa={aba==='leads'}       onClick={() => setAba('leads')}       />
         <AbaBtn id="plano"       label="Plano"       icon={CreditCard} ativa={aba==='plano'}      onClick={() => setAba('plano')}       />
@@ -729,6 +769,79 @@ export default function ConfiguracoesPage() {
           </div>
         )}
 
+        {/* ── ABA METAS ── */}
+        {aba === 'metas' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-atlia-muted">{metas.length} meta(s) estratégica(s)</p>
+              <button onClick={() => { setMetaEdit(undefined); setFormMetAberto(true) }}
+                className="btn-primary flex items-center gap-2">
+                <Plus size={15} /> Nova Meta
+              </button>
+            </div>
+
+            {carregandoMet ? (
+              <div className="py-12 text-center text-atlia-muted"><Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…</div>
+            ) : (
+              <div className="card p-0 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-atlia-gray border-b border-gray-100">
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Meta</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Objetivo</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-28">Progresso</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {metas.length === 0 ? (
+                      <tr><td colSpan={4} className="py-12 text-center text-atlia-muted">
+                        <Flag size={24} className="mx-auto mb-2 opacity-20" />
+                        Nenhuma meta cadastrada ainda.
+                      </td></tr>
+                    ) : metas.map(me => (
+                      <tr key={me.id} className="hover:bg-atlia-gray/40 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <p className="font-medium text-gray-800">{me.nome}</p>
+                          {me.descricao && <p className="text-xs text-atlia-muted mt-0.5 line-clamp-1">{me.descricao}</p>}
+                        </td>
+                        <td className="px-4 py-3.5 text-gray-600 text-xs">{me.objetivo_nome}</td>
+                        <td className="px-4 py-3.5 text-center">
+                          <span className={`text-sm font-bold ${me.pct_atual >= 70 ? 'text-atlia-green' : me.pct_atual >= 40 ? 'text-yellow-600' : 'text-atlia-red'}`}>
+                            {me.pct_atual}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          {confirmDelMet === me.id ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-xs text-red-600">Confirmar?</span>
+                              <button onClick={() => excluirMeta(me.id)} className="text-xs text-red-600 font-semibold hover:underline">Sim</button>
+                              <button onClick={() => setConfirmDelMet(null)} className="text-xs text-gray-500 hover:underline">Não</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => {
+                                setMetaEdit({ id: me.id, nome: me.nome, descricao: me.descricao ?? '', objetivo_id: me.objetivo_id, pct_atual: me.pct_atual })
+                                setFormMetAberto(true)
+                              }} className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
+                                <Pencil size={14} />
+                              </button>
+                              <button onClick={() => setConfirmDelMet(me.id)}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-atlia-muted hover:text-atlia-red transition-colors">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── ABA USUÁRIOS ── */}
         {aba === 'usuarios' && (
           <div className="space-y-6">
@@ -1049,6 +1162,14 @@ export default function ConfiguracoesPage() {
           objetivoInicial={objetivoEdit}
           onSuccess={msg => { setFormObjAberto(false); setSucesso(msg); carregarObjetivos() }}
           onCancelar={() => setFormObjAberto(false)}
+        />
+      </SlidePanel>
+
+      <SlidePanel aberto={formMetAberto} titulo={metaEdit?.id ? 'Editar Meta' : 'Nova Meta'} onFechar={() => setFormMetAberto(false)}>
+        <MetaForm
+          metaInicial={metaEdit}
+          onSuccess={msg => { setFormMetAberto(false); setSucesso(msg); carregarMetas() }}
+          onCancelar={() => setFormMetAberto(false)}
         />
       </SlidePanel>
 
