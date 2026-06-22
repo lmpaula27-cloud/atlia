@@ -49,7 +49,7 @@ type ProjetoItem = {
 type EixoItem = {
   nome: string
   cor: string
-  objetivos: { pct_atual: number }[]
+  objetivos: { pct_atual: number; peso: number }[]
 }
 
 export default function DashboardPage() {
@@ -68,7 +68,7 @@ export default function DashboardPage() {
           .order('created_at', { ascending: false }),
         supabase
           .from('eixos')
-          .select('nome, cor, ordem, objetivos(pct_atual)')
+          .select('nome, cor, ordem, objetivos(pct_atual, peso)')
           .order('ordem'),
       ])
 
@@ -109,14 +109,21 @@ export default function DashboardPage() {
     .sort((a, b) => (ordemStatus[a.status] ?? 5) - (ordemStatus[b.status] ?? 5))
     .slice(0, 5)
 
-  // ── Eixos: média dos objetivos ───────────────────────────────
+  // ── Eixos: média ponderada pelo peso dos objetivos ────────────
   const eixosProgresso = eixos.map(e => {
-    const objs   = e.objetivos ?? []
-    const media  = objs.length > 0 ? Math.round(objs.reduce((s, o) => s + o.pct_atual, 0) / objs.length) : 0
+    const objs      = e.objetivos ?? []
+    const pesoTotal = objs.reduce((s, o) => s + (o.peso ?? 1), 0)
+    const media     = pesoTotal > 0
+      ? Math.round(objs.reduce((s, o) => s + o.pct_atual * (o.peso ?? 1), 0) / pesoTotal)
+      : 0
     return { titulo: e.nome, atingimento: media, cor: e.cor }
   })
-  const mediaGeral = eixosProgresso.length > 0
-    ? Math.round(eixosProgresso.reduce((s, e) => s + e.atingimento, 0) / eixosProgresso.length)
+
+  // Atingimento da visão: ponderado por todos os objetivos, sem distinção de eixo
+  const todosObjetivos = eixos.flatMap(e => e.objetivos ?? [])
+  const pesoTotalVisao = todosObjetivos.reduce((s, o) => s + (o.peso ?? 1), 0)
+  const mediaGeral = pesoTotalVisao > 0
+    ? Math.round(todosObjetivos.reduce((s, o) => s + o.pct_atual * (o.peso ?? 1), 0) / pesoTotalVisao)
     : 0
 
   // ── Execução orçamentária por secretaria ─────────────────────
@@ -218,7 +225,7 @@ export default function DashboardPage() {
             <div className="mt-5 pt-4 border-t border-gray-100 flex items-center gap-2">
               <TrendingUp size={15} className="text-atlia-green" />
               <p className="text-xs text-atlia-muted">
-                Atingimento médio: <span className="font-semibold text-atlia-navy">{mediaGeral}%</span>
+                Atingimento da Visão: <span className="font-semibold text-atlia-navy">{mediaGeral}%</span>
               </p>
             </div>
           </div>

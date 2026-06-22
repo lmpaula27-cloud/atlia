@@ -10,6 +10,7 @@ interface ObjetivoUI {
   numero: string
   nome: string
   pct_atual: number
+  peso: number
   totalProjetos: number
   concluidos: number
   emAndamento: number
@@ -53,7 +54,7 @@ export default function ObjetivosPage() {
     const [{ data: eixosRaw }, { data: projRaw }] = await Promise.all([
       supabase
         .from('eixos')
-        .select('id, nome, descricao, cor, ordem, objetivos(id, nome, pct_atual)')
+        .select('id, nome, descricao, cor, ordem, objetivos(id, nome, pct_atual, peso)')
         .order('ordem'),
       supabase
         .from('projetos')
@@ -71,6 +72,7 @@ export default function ObjetivosPage() {
           numero:        `${ex.ordem}.${i + 1}`,
           nome:          ob.nome,
           pct_atual:     ob.pct_atual,
+          peso:          ob.peso ?? 1,
           totalProjetos: pObjs.length,
           concluidos:    pObjs.filter((p: any) => p.status === 'concluido').length,
           emAndamento:   pObjs.filter((p: any) => p.status === 'em_andamento' || p.status === 'atencao').length,
@@ -78,8 +80,9 @@ export default function ObjetivosPage() {
         }
       })
 
-      const atingimento = objs.length > 0
-        ? Math.round(objs.reduce((s, o) => s + o.pct_atual, 0) / objs.length)
+      const pesoTotal = objs.reduce((s, o) => s + o.peso, 0)
+      const atingimento = pesoTotal > 0
+        ? Math.round(objs.reduce((s, o) => s + o.pct_atual * o.peso, 0) / pesoTotal)
         : 0
 
       return {
@@ -201,7 +204,12 @@ export default function ObjetivosPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-4 mb-2">
                             <div>
-                              <span className="text-xs font-bold" style={{ color: eixo.cor }}>{obj.numero}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold" style={{ color: eixo.cor }}>{obj.numero}</span>
+                                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium" title="Peso na visão">
+                                  peso {obj.peso}
+                                </span>
+                              </div>
                               <h4 className="font-semibold text-gray-800 text-sm leading-snug mt-0.5">{obj.nome}</h4>
                             </div>
                             <span className="font-bold text-base shrink-0" style={{ color: eixo.cor }}>{obj.pct_atual}%</span>

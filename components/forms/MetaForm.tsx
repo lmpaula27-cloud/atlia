@@ -9,6 +9,7 @@ export interface MetaEditavel {
   descricao: string
   objetivo_id: string
   pct_atual: number
+  peso: number
 }
 
 interface Props {
@@ -27,6 +28,7 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
   const [descricao,   setDescricao]   = useState(metaInicial?.descricao   ?? '')
   const [objetivoId,  setObjetivoId]  = useState(metaInicial?.objetivo_id ?? '')
   const [pctAtual,    setPctAtual]    = useState(metaInicial?.pct_atual   ?? 0)
+  const [peso,        setPeso]        = useState(metaInicial?.peso        ?? 1)
 
   const [objetivos,      setObjetivos]      = useState<{ id: string; nome: string }[]>([])
   const [carregandoOpts, setCarregandoOpts] = useState(true)
@@ -66,6 +68,7 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
       descricao:    descricao.trim() || null,
       objetivo_id:  objetivoId,
       pct_atual:    pctAtual,
+      peso:         peso,
     }
 
     let erroMsg: string | null = null
@@ -115,17 +118,28 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
       <div className="border-t border-gray-100" />
 
       <div>
-        <p className="text-xs font-bold text-atlia-muted uppercase tracking-wider mb-4">Progresso</p>
-        <div>
-          <label className={labelCls}>
-            Percentual atual:&nbsp;
-            <span className="font-bold text-atlia-blue">{pctAtual}%</span>
-          </label>
-          <input type="range" min={0} max={100} step={1}
-            value={pctAtual} onChange={e => setPctAtual(Number(e.target.value))}
-            className="w-full accent-atlia-blue" />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>0%</span><span>50%</span><span>100%</span>
+        <p className="text-xs font-bold text-atlia-muted uppercase tracking-wider mb-4">Progresso e peso</p>
+        <div className="space-y-4">
+          <div>
+            <label className={labelCls}>
+              Percentual atual:&nbsp;
+              <span className="font-bold text-atlia-blue">{pctAtual}%</span>
+            </label>
+            <input type="range" min={0} max={100} step={1}
+              value={pctAtual} onChange={e => setPctAtual(Number(e.target.value))}
+              className="w-full accent-atlia-blue" />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Peso desta meta dentro do objetivo</label>
+            <input type="number" min={1} value={peso}
+              onChange={e => setPeso(Math.max(1, Number(e.target.value)))}
+              className={inputCls} />
+            <p className="text-xs text-atlia-muted mt-1">
+              Quanto maior o peso, mais esta meta influencia o atingimento do objetivo.
+            </p>
           </div>
         </div>
       </div>

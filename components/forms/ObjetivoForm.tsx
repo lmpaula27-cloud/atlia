@@ -9,6 +9,7 @@ export interface ObjetivoEditavel {
   descricao: string
   eixo_id: string
   pct_atual: number
+  peso: number
 }
 
 interface Props {
@@ -27,6 +28,7 @@ export default function ObjetivoForm({ objetivoInicial, onSuccess, onCancelar }:
   const [descricao, setDescricao] = useState(objetivoInicial?.descricao ?? '')
   const [eixoId,    setEixoId]    = useState(objetivoInicial?.eixo_id   ?? '')
   const [pctAtual,  setPctAtual]  = useState(objetivoInicial?.pct_atual ?? 0)
+  const [peso,      setPeso]      = useState(objetivoInicial?.peso      ?? 1)
 
   const [eixos,          setEixos]          = useState<{ id: string; nome: string; cor: string }[]>([])
   const [carregandoOpts, setCarregandoOpts] = useState(true)
@@ -66,6 +68,7 @@ export default function ObjetivoForm({ objetivoInicial, onSuccess, onCancelar }:
       descricao:    descricao.trim() || null,
       eixo_id:      eixoId,
       pct_atual:    pctAtual,
+      peso:         peso,
     }
 
     let erroMsg: string | null = null
@@ -123,17 +126,28 @@ export default function ObjetivoForm({ objetivoInicial, onSuccess, onCancelar }:
       <div className="border-t border-gray-100" />
 
       <div>
-        <p className="text-xs font-bold text-atlia-muted uppercase tracking-wider mb-4">Progresso</p>
-        <div>
-          <label className={labelCls}>
-            Percentual atual:&nbsp;
-            <span className="font-bold text-atlia-blue">{pctAtual}%</span>
-          </label>
-          <input type="range" min={0} max={100} step={1}
-            value={pctAtual} onChange={e => setPctAtual(Number(e.target.value))}
-            className="w-full accent-atlia-blue" />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>0%</span><span>50%</span><span>100%</span>
+        <p className="text-xs font-bold text-atlia-muted uppercase tracking-wider mb-4">Progresso e peso</p>
+        <div className="space-y-4">
+          <div>
+            <label className={labelCls}>
+              Percentual atual:&nbsp;
+              <span className="font-bold text-atlia-blue">{pctAtual}%</span>
+            </label>
+            <input type="range" min={0} max={100} step={1}
+              value={pctAtual} onChange={e => setPctAtual(Number(e.target.value))}
+              className="w-full accent-atlia-blue" />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Peso deste objetivo na visão do município</label>
+            <input type="number" min={1} value={peso}
+              onChange={e => setPeso(Math.max(1, Number(e.target.value)))}
+              className={inputCls} />
+            <p className="text-xs text-atlia-muted mt-1">
+              Quanto maior o peso, mais este objetivo influencia o atingimento geral da visão.
+            </p>
           </div>
         </div>
       </div>

@@ -26,11 +26,11 @@ interface EixoRow {
 }
 interface ObjetivoRow {
   id: string; nome: string; descricao: string | null
-  eixo_id: string; eixo_nome: string; eixo_cor: string; pct_atual: number
+  eixo_id: string; eixo_nome: string; eixo_cor: string; pct_atual: number; peso: number
 }
 interface MetaRow {
   id: string; nome: string; descricao: string | null
-  objetivo_id: string; objetivo_nome: string; pct_atual: number
+  objetivo_id: string; objetivo_nome: string; pct_atual: number; peso: number
 }
 interface UsuarioRow {
   id: string; nome: string; cargo: string | null
@@ -204,7 +204,7 @@ export default function ConfiguracoesPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('objetivos')
-      .select('id, nome, descricao, pct_atual, eixo_id, eixos(nome, cor)')
+      .select('id, nome, descricao, pct_atual, peso, eixo_id, eixos(nome, cor)')
       .order('eixo_id')
     setObjetivos((data ?? []).map((o: any) => ({
       id:        o.id,
@@ -214,6 +214,7 @@ export default function ConfiguracoesPage() {
       eixo_nome: o.eixos?.nome ?? '—',
       eixo_cor:  o.eixos?.cor  ?? '#ccc',
       pct_atual: o.pct_atual,
+      peso:      o.peso ?? 1,
     })))
     setCarregandoObj(false)
   }, [])
@@ -238,7 +239,7 @@ export default function ConfiguracoesPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('metas')
-      .select('id, nome, descricao, pct_atual, objetivo_id, objetivos(nome)')
+      .select('id, nome, descricao, pct_atual, peso, objetivo_id, objetivos(nome)')
       .order('objetivo_id')
     setMetas((data ?? []).map((m: any) => ({
       id:            m.id,
@@ -247,6 +248,7 @@ export default function ConfiguracoesPage() {
       objetivo_id:   m.objetivo_id,
       objetivo_nome: m.objetivos?.nome ?? '—',
       pct_atual:     m.pct_atual,
+      peso:          m.peso ?? 1,
     })))
     setCarregandoMet(false)
   }, [])
@@ -717,6 +719,7 @@ export default function ConfiguracoesPage() {
                       <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Objetivo</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Eixo</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-28">Progresso</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-16">Peso</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
@@ -738,6 +741,7 @@ export default function ConfiguracoesPage() {
                             {ob.pct_atual}%
                           </span>
                         </td>
+                        <td className="px-4 py-3.5 text-center text-gray-600 text-sm font-medium">{ob.peso}</td>
                         <td className="px-4 py-3.5">
                           {confirmDelObj === ob.id ? (
                             <div className="flex items-center justify-center gap-2">
@@ -748,7 +752,7 @@ export default function ConfiguracoesPage() {
                           ) : (
                             <div className="flex items-center justify-center gap-2">
                               <button onClick={() => {
-                                setObjetivoEdit({ id: ob.id, nome: ob.nome, descricao: ob.descricao ?? '', eixo_id: ob.eixo_id, pct_atual: ob.pct_atual })
+                                setObjetivoEdit({ id: ob.id, nome: ob.nome, descricao: ob.descricao ?? '', eixo_id: ob.eixo_id, pct_atual: ob.pct_atual, peso: ob.peso })
                                 setFormObjAberto(true)
                               }} className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
                                 <Pencil size={14} />
@@ -790,12 +794,13 @@ export default function ConfiguracoesPage() {
                       <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Meta</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Objetivo</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-28">Progresso</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-16">Peso</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {metas.length === 0 ? (
-                      <tr><td colSpan={4} className="py-12 text-center text-atlia-muted">
+                      <tr><td colSpan={5} className="py-12 text-center text-atlia-muted">
                         <Flag size={24} className="mx-auto mb-2 opacity-20" />
                         Nenhuma meta cadastrada ainda.
                       </td></tr>
@@ -811,6 +816,7 @@ export default function ConfiguracoesPage() {
                             {me.pct_atual}%
                           </span>
                         </td>
+                        <td className="px-4 py-3.5 text-center text-gray-600 text-sm font-medium">{me.peso}</td>
                         <td className="px-4 py-3.5">
                           {confirmDelMet === me.id ? (
                             <div className="flex items-center justify-center gap-2">
@@ -821,7 +827,7 @@ export default function ConfiguracoesPage() {
                           ) : (
                             <div className="flex items-center justify-center gap-2">
                               <button onClick={() => {
-                                setMetaEdit({ id: me.id, nome: me.nome, descricao: me.descricao ?? '', objetivo_id: me.objetivo_id, pct_atual: me.pct_atual })
+                                setMetaEdit({ id: me.id, nome: me.nome, descricao: me.descricao ?? '', objetivo_id: me.objetivo_id, pct_atual: me.pct_atual, peso: me.peso })
                                 setFormMetAberto(true)
                               }} className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
                                 <Pencil size={14} />

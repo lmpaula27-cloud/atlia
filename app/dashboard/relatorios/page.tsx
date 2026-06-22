@@ -184,13 +184,13 @@ async function fetchDadosRelatorio(relId: string): Promise<DadosRelatorio> {
   } else if (relId === '4') {
     const { data } = await supabase
       .from('eixos')
-      .select('nome, objetivos(nome, pct_atual)')
+      .select('nome, objetivos(nome, pct_atual, peso)')
       .order('ordem')
     eixos = data ?? []
   } else if (relId === '5') {
     const { data } = await supabase
       .from('eixos')
-      .select('nome, descricao, objetivos(nome, pct_atual)')
+      .select('nome, descricao, objetivos(nome, pct_atual, peso)')
       .order('ordem')
     eixos = data ?? []
   } else if (relId === '6') {
@@ -338,8 +338,9 @@ async function gerarPDF(rel: Relatorio, dados: DadosRelatorio): Promise<void> {
     const tableBody: string[][] = []
     eixos.forEach((eixo: any) => {
       const objetivos: any[] = eixo.objetivos ?? []
-      const mediaEixo: number = objetivos.length > 0
-        ? Math.round(objetivos.reduce((s: number, o: any) => s + (o.pct_atual ?? 0), 0) / objetivos.length)
+      const pesoTotal: number = objetivos.reduce((s: number, o: any) => s + (o.peso ?? 1), 0)
+      const mediaEixo: number = pesoTotal > 0
+        ? Math.round(objetivos.reduce((s: number, o: any) => s + (o.pct_atual ?? 0) * (o.peso ?? 1), 0) / pesoTotal)
         : 0
       tableBody.push([eixo.nome, 'Média do eixo', `${mediaEixo}%`])
       objetivos.forEach((obj: any) => tableBody.push(['', obj.nome, `${obj.pct_atual ?? 0}%`]))
@@ -392,7 +393,8 @@ async function gerarPDF(rel: Relatorio, dados: DadosRelatorio): Promise<void> {
       head: [['Eixo Estratégico', 'Qtd. Objetivos', 'Atingimento Médio']],
       body: eixos.map((eixo: any) => {
         const objetivos: any[] = eixo.objetivos ?? []
-        const media = objetivos.length > 0 ? Math.round(objetivos.reduce((s: number, o: any) => s + (o.pct_atual ?? 0), 0) / objetivos.length) : 0
+        const pesoTotal = objetivos.reduce((s: number, o: any) => s + (o.peso ?? 1), 0)
+        const media = pesoTotal > 0 ? Math.round(objetivos.reduce((s: number, o: any) => s + (o.pct_atual ?? 0) * (o.peso ?? 1), 0) / pesoTotal) : 0
         return [eixo.nome, String(objetivos.length), `${media}%`]
       }),
       styles: { fontSize: 9, cellPadding: 3 },

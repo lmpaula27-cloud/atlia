@@ -10,10 +10,12 @@ export interface ProjetoEditavel {
   descricao: string | null
   secretaria_id: string | null
   objetivo_id: string | null
+  meta_id: string | null
   status: string
   prioridade: string
   tipo_ganho: string
   pct: number
+  peso: number
   data_inicio: string | null
   data_fim: string | null
   orcamento: number
@@ -70,10 +72,12 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
   const [descricao,    setDescricao]    = useState(projetoInicial?.descricao ?? '')
   const [secretariaId, setSecretariaId] = useState(projetoInicial?.secretaria_id ?? secretariaTravada ?? '')
   const [objetivoId,   setObjetivoId]   = useState(projetoInicial?.objetivo_id ?? '')
+  const [metaId,       setMetaId]       = useState(projetoInicial?.meta_id ?? '')
   const [status,       setStatus]       = useState(projetoInicial?.status ?? 'nao_iniciado')
   const [prioridade,   setPrioridade]   = useState(projetoInicial?.prioridade ?? 'media')
   const [tipoGanho,    setTipoGanho]    = useState(projetoInicial?.tipo_ganho ?? 'N/A')
   const [pct,          setPct]          = useState(projetoInicial?.pct ?? 0)
+  const [peso,         setPeso]         = useState(projetoInicial?.peso ?? 1)
   const [dataInicio,   setDataInicio]   = useState(projetoInicial?.data_inicio ?? '')
   const [dataFim,      setDataFim]      = useState(projetoInicial?.data_fim ?? '')
   const [orcamento,    setOrcamento]    = useState(projetoInicial?.orcamento ?? 0)
@@ -86,6 +90,7 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
   // ── Dados para selects ───────────────────────────────────────
   const [secretarias, setSecretarias] = useState<{ id: string; nome: string }[]>([])
   const [objetivos,   setObjetivos]   = useState<{ id: string; nome: string }[]>([])
+  const [metas,       setMetas]       = useState<{ id: string; nome: string; objetivo_id: string }[]>([])
   const [carregandoOpts, setCarregandoOpts] = useState(true)
 
   // ── Estado de envio ──────────────────────────────────────────
@@ -96,12 +101,14 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
   useEffect(() => {
     async function carregar() {
       const supabase = createClient()
-      const [{ data: secs }, { data: objs }] = await Promise.all([
+      const [{ data: secs }, { data: objs }, { data: mets }] = await Promise.all([
         supabase.from('secretarias').select('id, nome').order('nome'),
         supabase.from('objetivos').select('id, nome').order('nome'),
+        supabase.from('metas').select('id, nome, objetivo_id').order('nome'),
       ])
       setSecretarias(secs ?? [])
       setObjetivos(objs ?? [])
+      setMetas(mets ?? [])
       setCarregandoOpts(false)
     }
     carregar()
@@ -136,10 +143,12 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
       descricao:     descricao.trim() || null,
       secretaria_id: secretariaId || null,
       objetivo_id:   objetivoId || null,
+      meta_id:       metaId || null,
       status,
       prioridade,
       tipo_ganho:    tipoGanho,
       pct,
+      peso,
       data_inicio:   dataInicio || null,
       data_fim:      dataFim || null,
       orcamento,
@@ -251,7 +260,7 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
             <label className={labelCls}>Objetivo estratégico <span className="text-xs text-gray-400 font-normal">(opcional)</span></label>
             <select
               value={objetivoId}
-              onChange={e => setObjetivoId(e.target.value)}
+              onChange={e => { setObjetivoId(e.target.value); setMetaId('') }}
               disabled={carregandoOpts}
               className={inputCls + ' bg-white'}
             >
@@ -260,6 +269,23 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
                 <option key={o.id} value={o.id}>{o.nome}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className={labelCls}>Meta estratégica <span className="text-xs text-gray-400 font-normal">(opcional)</span></label>
+            <select
+              value={metaId}
+              onChange={e => setMetaId(e.target.value)}
+              disabled={carregandoOpts || !objetivoId}
+              className={inputCls + ' bg-white'}
+            >
+              <option value="">— Sem vinculação —</option>
+              {metas.filter(m => m.objetivo_id === objetivoId).map(m => (
+                <option key={m.id} value={m.id}>{m.nome}</option>
+              ))}
+            </select>
+            {!objetivoId && (
+              <p className="text-xs text-atlia-muted mt-1">Selecione um objetivo para escolher a meta.</p>
+            )}
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -317,6 +343,15 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
             <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>0%</span><span>50%</span><span>100%</span>
             </div>
+          </div>
+          <div>
+            <label className={labelCls}>Peso deste projeto dentro da meta</label>
+            <input type="number" min={1} value={peso}
+              onChange={e => setPeso(Math.max(1, Number(e.target.value)))}
+              className={inputCls} />
+            <p className="text-xs text-atlia-muted mt-1">
+              Quanto maior o peso, mais este projeto influencia o atingimento da meta vinculada.
+            </p>
           </div>
         </div>
       </div>

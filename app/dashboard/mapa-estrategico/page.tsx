@@ -22,6 +22,7 @@ interface ObjetivoUI {
   id: string
   nome: string
   pct_atual: number
+  peso: number
   totalProjetos: number
 }
 
@@ -62,7 +63,7 @@ export default function MapaEstrategicoPage() {
     const [{ data: eixosRaw }, { data: projRaw }, { data: munData }] = await Promise.all([
       supabase
         .from('eixos')
-        .select('id, nome, descricao, cor, ordem, objetivos(id, nome, pct_atual)')
+        .select('id, nome, descricao, cor, ordem, objetivos(id, nome, pct_atual, peso)')
         .order('ordem'),
       supabase
         .from('projetos')
@@ -92,11 +93,13 @@ export default function MapaEstrategicoPage() {
         id:            ob.id,
         nome:          ob.nome,
         pct_atual:     ob.pct_atual,
+        peso:          ob.peso ?? 1,
         totalProjetos: projs.filter((p: any) => p.objetivo_id === ob.id).length,
       }))
 
-      const atingimento = objs.length > 0
-        ? Math.round(objs.reduce((s, o) => s + o.pct_atual, 0) / objs.length)
+      const pesoTotal = objs.reduce((s, o) => s + o.peso, 0)
+      const atingimento = pesoTotal > 0
+        ? Math.round(objs.reduce((s, o) => s + o.pct_atual * o.peso, 0) / pesoTotal)
         : 0
 
       return {
@@ -119,6 +122,13 @@ export default function MapaEstrategicoPage() {
 
   const totalObjetivos = eixos.reduce((s, e) => s + e.objetivos.length, 0)
   const totalProjetos  = eixos.reduce((s, e) => s + e.totalProjetos, 0)
+
+  // Atingimento da visão: média ponderada pelo peso de TODOS os objetivos (sem distinção de eixo)
+  const todosObjetivos = eixos.flatMap(e => e.objetivos)
+  const pesoTotalVisao = todosObjetivos.reduce((s, o) => s + o.peso, 0)
+  const atingimentoVisao = pesoTotalVisao > 0
+    ? Math.round(todosObjetivos.reduce((s, o) => s + o.pct_atual * o.peso, 0) / pesoTotalVisao)
+    : 0
 
   return (
     <div className="flex flex-col flex-1">
@@ -240,9 +250,7 @@ export default function MapaEstrategicoPage() {
                 { label: 'Eixos Temáticos',       value: eixos.length.toString()       },
                 { label: 'Objetivos Estratégicos', value: totalObjetivos.toString()     },
                 { label: 'Projetos vinculados',    value: totalProjetos.toString()      },
-                { label: 'Atingimento médio',      value: eixos.length > 0
-                    ? `${Math.round(eixos.reduce((s, e) => s + e.atingimento, 0) / eixos.length)}%`
-                    : '—' },
+                { label: 'Atingimento da Visão',   value: todosObjetivos.length > 0 ? `${atingimentoVisao}%` : '—' },
               ].map(s => (
                 <div key={s.label}>
                   <p className="text-white font-bold text-3xl">{s.value}</p>
