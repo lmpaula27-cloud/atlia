@@ -54,13 +54,14 @@ function getCorAtingimento(v: number) {
 export default function MapaEstrategicoPage() {
   const [eixos, setEixos]           = useState<EixoUI[]>([])
   const [identidade, setIdentidade] = useState<Identidade>(FALLBACK_IDENTIDADE)
+  const [totalMetas, setTotalMetas] = useState(0)
   const [carregando, setCarregando] = useState(true)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
     const supabase = createClient()
 
-    const [{ data: eixosRaw }, { data: projRaw }, { data: munData }] = await Promise.all([
+    const [{ data: eixosRaw }, { data: projRaw }, { data: munData }, { count: metasCount }] = await Promise.all([
       supabase
         .from('eixos')
         .select('id, nome, descricao, cor, ordem, objetivos(id, nome, pct_atual, peso)')
@@ -73,7 +74,11 @@ export default function MapaEstrategicoPage() {
         .from('municipios')
         .select('missao, visao, valores')
         .single(),
+      supabase
+        .from('metas')
+        .select('id', { count: 'exact', head: true }),
     ])
+    setTotalMetas(metasCount ?? 0)
 
     // Identidade do município — usa banco se preenchido, senão fallback
     if (munData) {
@@ -151,14 +156,23 @@ export default function MapaEstrategicoPage() {
             <p className="text-sm text-gray-700 leading-relaxed">{identidade.missao}</p>
           </div>
 
-          <div className="card border-l-4 border-atlia-blue">
+          <div className="card border-l-4 border-atlia-blue flex flex-col">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-8 h-8 bg-atlia-blue rounded-lg flex items-center justify-center">
                 <Eye size={16} className="text-white" />
               </div>
               <h3 className="font-bold text-atlia-blue uppercase tracking-wide text-xs">Visão 2035</h3>
             </div>
-            <p className="text-sm text-gray-700 leading-relaxed">{identidade.visao}</p>
+            <p className="text-sm text-gray-700 leading-relaxed flex-1">{identidade.visao}</p>
+            {!carregando && todosObjetivos.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-semibold text-atlia-muted uppercase tracking-wide">Atingimento da Visão</span>
+                  <span className="text-sm font-bold text-atlia-blue">{atingimentoVisao}%</span>
+                </div>
+                <ProgressBar value={atingimentoVisao} color={getCorAtingimento(atingimentoVisao)} />
+              </div>
+            )}
           </div>
 
           <div className="card border-l-4 border-atlia-green">
@@ -249,8 +263,8 @@ export default function MapaEstrategicoPage() {
               {[
                 { label: 'Eixos Temáticos',       value: eixos.length.toString()       },
                 { label: 'Objetivos Estratégicos', value: totalObjetivos.toString()     },
+                { label: 'Metas Estratégicas',     value: totalMetas.toString()         },
                 { label: 'Projetos vinculados',    value: totalProjetos.toString()      },
-                { label: 'Atingimento da Visão',   value: todosObjetivos.length > 0 ? `${atingimentoVisao}%` : '—' },
               ].map(s => (
                 <div key={s.label}>
                   <p className="text-white font-bold text-3xl">{s.value}</p>

@@ -346,11 +346,11 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
           </div>
           <div>
             <label className={labelCls}>Peso deste projeto dentro da meta</label>
-            <input type="number" min={1} value={peso}
-              onChange={e => setPeso(Math.max(1, Number(e.target.value)))}
+            <input type="number" min={0} value={peso}
+              onChange={e => setPeso(Math.max(0, Number(e.target.value)))}
               className={inputCls} />
             <p className="text-xs text-atlia-muted mt-1">
-              Quanto maior o peso, mais este projeto influencia o atingimento da meta vinculada.
+              Quanto maior o peso, mais este projeto influencia o atingimento da meta vinculada. Peso 0 exclui o projeto do cálculo.
             </p>
           </div>
         </div>
