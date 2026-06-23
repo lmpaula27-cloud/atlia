@@ -5,8 +5,10 @@ Itens levantados para evolução futura do produto. Não estão priorizados nem 
 ## 1. Responsáveis por atualização de status dos projetos
 Permitir designar um ou mais usuários como responsáveis pela atualização de status de cada projeto. As atualizações registradas (quem, quando, o que mudou) devem aparecer como histórico no detalhamento do projeto (`/dashboard/projetos/[id]`).
 
-## 2. CRUD de Metas Estratégicas
+## 2. CRUD de Metas Estratégicas ✅ Concluído
 Criar uma camada de "metas" entre objetivos e projetos. Cada objetivo estratégico pode ter várias metas, e os projetos passam a se vincular a metas (não diretamente ao objetivo). Precisa de tela própria em Configurações, formulário (`MetaForm`) e ajuste nas páginas que hoje relacionam projeto → objetivo.
+
+*Entregue: tabela `metas` + RLS, `MetaForm.tsx`, aba em Configurações, página própria `/dashboard/metas` no menu lateral, e carga real das 322 metas extraídas da planilha.*
 
 ## 3. Relacionar objetivos/metas aos ODS (Objetivos de Desenvolvimento Sustentável da ONU)
 Permitir vincular um ou mais dos 17 ODS a cada objetivo ou meta estratégica. Útil para relatórios de impacto e prestação de contas. Precisa de tabela de referência com os 17 ODS (ícone, número, cor oficial) e relação N:N.
@@ -17,8 +19,10 @@ Adicionar controle financeiro ao projeto: valor orçado, valor empenhado/gasto, 
 ## 5. Avaliar mais "temas" de gerenciamento de projetos
 Investigar quais outras dimensões de PM vale a pena adicionar (riscos, equipe/responsáveis, dependências entre projetos, anexos/documentos, cronograma com marcos — já existe `marcos`). Definir prioridade após avaliação.
 
-## 6. Estrutura de ponderação em cascata (projeto → meta → objetivo → visão)
+## 6. Estrutura de ponderação em cascata (projeto → meta → objetivo → visão) ✅ Concluído
 Criar pesos configuráveis: cada projeto tem um peso dentro da sua meta, cada meta um peso dentro do objetivo, cada objetivo um peso dentro da visão de futuro do município. Com isso, calcular um indicador agregado de "quão perto o município está da visão de futuro" — um % consolidado que sobe a cascata ponderada de progresso.
+
+*Entregue: coluna `peso` em projetos/metas/objetivos (com os pesos reais dos 12 objetivos carregados da planilha), cálculos ponderados em todas as páginas (Objetivos, Metas, Mapa Estratégico, Painel Executivo, Relatórios), e novo indicador "Atingimento da Visão" ponderado por todos os objetivos.*
 
 ## 7. Notificações e alertas
 Avisar usuários (in-app e/ou e-mail) quando: um indicador sair da meta, um projeto atrasar (passar do `data_fim` sem concluir), ou um marco vencer. Hoje não existe nenhum mecanismo de alerta — a informação só aparece se alguém entrar e olhar.
