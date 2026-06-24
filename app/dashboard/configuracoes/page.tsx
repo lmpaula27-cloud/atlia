@@ -13,6 +13,7 @@ import {
   AlertCircle, Loader2, XCircle, Inbox,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'metas' | 'usuarios' | 'leads' | 'plano'
 
@@ -80,8 +81,16 @@ function AbaBtn({ id, label, icon: Icon, ativa, onClick }: {
 
 // ── Componente principal ───────────────────────────────────────
 export default function ConfiguracoesPage() {
+  const usuarioLogado = useCurrentUser()
+  const ehGestor = usuarioLogado.perfil === 'gestor'
+
   const [aba, setAba] = useState<Aba>('municipio')
   const [sucesso, setSucesso] = useState('')
+
+  // Gestor só acessa a aba Usuários (visão restrita à própria secretaria)
+  useEffect(() => {
+    if (ehGestor) setAba('usuarios')
+  }, [ehGestor])
 
   useEffect(() => {
     if (!sucesso) return
@@ -435,16 +444,18 @@ export default function ConfiguracoesPage() {
       )}
 
       {/* Abas */}
-      <div className="bg-white border-b border-gray-100 px-8 flex gap-1 mt-2">
-        <AbaBtn id="municipio"   label="Município"   icon={Building2} ativa={aba==='municipio'}   onClick={() => setAba('municipio')}   />
-        <AbaBtn id="secretarias" label="Secretarias" icon={Layers}    ativa={aba==='secretarias'} onClick={() => setAba('secretarias')} />
-        <AbaBtn id="eixos"       label="Eixos"       icon={Compass}   ativa={aba==='eixos'}       onClick={() => setAba('eixos')}       />
-        <AbaBtn id="objetivos"   label="Objetivos"   icon={Target}    ativa={aba==='objetivos'}   onClick={() => setAba('objetivos')}   />
-        <AbaBtn id="metas"       label="Metas"       icon={Flag}      ativa={aba==='metas'}       onClick={() => setAba('metas')}       />
-        <AbaBtn id="usuarios"    label="Usuários"    icon={Users}     ativa={aba==='usuarios'}    onClick={() => setAba('usuarios')}    />
-        <AbaBtn id="leads"       label="Leads"       icon={Inbox}     ativa={aba==='leads'}       onClick={() => setAba('leads')}       />
-        <AbaBtn id="plano"       label="Plano"       icon={CreditCard} ativa={aba==='plano'}      onClick={() => setAba('plano')}       />
-      </div>
+      {!ehGestor && (
+        <div className="bg-white border-b border-gray-100 px-8 flex gap-1 mt-2">
+          <AbaBtn id="municipio"   label="Município"   icon={Building2} ativa={aba==='municipio'}   onClick={() => setAba('municipio')}   />
+          <AbaBtn id="secretarias" label="Secretarias" icon={Layers}    ativa={aba==='secretarias'} onClick={() => setAba('secretarias')} />
+          <AbaBtn id="eixos"       label="Eixos"       icon={Compass}   ativa={aba==='eixos'}       onClick={() => setAba('eixos')}       />
+          <AbaBtn id="objetivos"   label="Objetivos"   icon={Target}    ativa={aba==='objetivos'}   onClick={() => setAba('objetivos')}   />
+          <AbaBtn id="metas"       label="Metas"       icon={Flag}      ativa={aba==='metas'}       onClick={() => setAba('metas')}       />
+          <AbaBtn id="usuarios"    label="Usuários"    icon={Users}     ativa={aba==='usuarios'}    onClick={() => setAba('usuarios')}    />
+          <AbaBtn id="leads"       label="Leads"       icon={Inbox}     ativa={aba==='leads'}       onClick={() => setAba('leads')}       />
+          <AbaBtn id="plano"       label="Plano"       icon={CreditCard} ativa={aba==='plano'}      onClick={() => setAba('plano')}       />
+        </div>
+      )}
 
       <div className="p-8 flex-1 overflow-y-auto">
 
@@ -861,7 +872,17 @@ export default function ConfiguracoesPage() {
         {aba === 'usuarios' && (
           <div className="space-y-6">
 
-            {/* Formulário de convite */}
+            {ehGestor && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle size={16} className="text-atlia-blue shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-800">
+                  Você está vendo apenas os usuários vinculados à(s) secretaria(s) sob sua gestão.
+                </p>
+              </div>
+            )}
+
+            {/* Formulário de convite — somente admin */}
+            {!ehGestor && (
             <div className="card space-y-4">
               <h2 className="font-semibold text-atlia-navy flex items-center gap-2">
                 <Plus size={16} /> Convidar novo usuário
@@ -931,6 +952,7 @@ export default function ConfiguracoesPage() {
                 </button>
               </form>
             </div>
+            )}
 
             {/* Lista */}
             <div className="card p-0 overflow-hidden">
@@ -948,7 +970,10 @@ export default function ConfiguracoesPage() {
                     <tr><td colSpan={4} className="py-12 text-center text-atlia-muted">
                       <Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…
                     </td></tr>
-                  ) : usuarios.map(u => {
+                  ) : (ehGestor
+                      ? usuarios.filter(u => u.secretaria_ids.some(id => usuarioLogado.secretaria_ids.includes(id)))
+                      : usuarios
+                    ).map(u => {
                     const pi = perfilInfo[u.perfil]
                     const iniciais = u.nome.split(' ').map(n => n[0]).slice(0, 2).join('')
                     return (
@@ -1003,7 +1028,7 @@ export default function ConfiguracoesPage() {
                                     <span key={n} className="bg-atlia-light text-atlia-navy px-2 py-0.5 rounded-full text-xs font-medium">{n}</span>
                                   ))
                               }
-                              {u.perfil !== 'admin' && (
+                              {!ehGestor && u.perfil !== 'admin' && (
                                 <button onClick={() => abrirEdicaoSecs(u)} title="Editar secretarias"
                                   className="text-gray-300 hover:text-atlia-navy transition-colors ml-1">
                                   <Pencil size={13} />
@@ -1016,10 +1041,16 @@ export default function ConfiguracoesPage() {
                           <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${pi.cor}`}>{pi.label}</span>
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          <button onClick={() => toggleUsuario(u.id, !u.ativo)}
-                            className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${u.ativo ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                            {u.ativo ? 'Ativo' : 'Inativo'}
-                          </button>
+                          {ehGestor ? (
+                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {u.ativo ? 'Ativo' : 'Inativo'}
+                            </span>
+                          ) : (
+                            <button onClick={() => toggleUsuario(u.id, !u.ativo)}
+                              className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${u.ativo ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                              {u.ativo ? 'Ativo' : 'Inativo'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     )
