@@ -20,6 +20,7 @@ export interface ProjetoEditavel {
   data_fim: string | null
   orcamento: number
   executado: number
+  fonte_recurso: string | null
   tags: string[]
   bairro?: string | null
   lat?: number | null
@@ -82,6 +83,7 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
   const [dataFim,      setDataFim]      = useState(projetoInicial?.data_fim ?? '')
   const [orcamento,    setOrcamento]    = useState(projetoInicial?.orcamento ?? 0)
   const [executado,    setExecutado]    = useState(projetoInicial?.executado ?? 0)
+  const [fonteRecurso, setFonteRecurso] = useState(projetoInicial?.fonte_recurso ?? '')
   const [tagsTexto,    setTagsTexto]    = useState((projetoInicial?.tags ?? []).join(', '))
   const [bairro,       setBairro]       = useState(projetoInicial?.bairro ?? '')
   const [lat,          setLat]          = useState(projetoInicial?.lat?.toString() ?? '')
@@ -153,6 +155,7 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
       data_fim:      dataFim || null,
       orcamento,
       executado,
+      fonte_recurso: fonteRecurso.trim() || null,
       tags:          tagsTexto ? tagsTexto.split(',').map(t => t.trim()).filter(Boolean) : [],
       bairro:        bairro.trim() || null,
       lat:           lat  !== '' && !isNaN(parseFloat(lat))  ? parseFloat(lat)  : null,
@@ -396,6 +399,16 @@ export default function ProjetoForm({ projetoInicial, secretariaInicial, secreta
             </strong> · Saldo: R$ {(orcamento - executado).toLocaleString('pt-BR')}
           </p>
         )}
+        <div className="mt-3">
+          <label className={labelCls}>Fonte de recurso</label>
+          <input
+            type="text"
+            value={fonteRecurso}
+            onChange={e => setFonteRecurso(e.target.value)}
+            placeholder="Ex.: Recurso próprio, PMAT, Convênio Federal..."
+            className={inputCls}
+          />
+        </div>
       </div>
 
       <div className="border-t border-gray-100" />

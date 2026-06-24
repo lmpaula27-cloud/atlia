@@ -2,8 +2,10 @@
 
 Itens levantados para evolução futura do produto. Não estão priorizados nem detalhados em plano técnico — servem como registro de ideias a desenvolver.
 
-## 1. Responsáveis por atualização de status dos projetos
+## 1. Responsáveis por atualização de status dos projetos ✅ Concluído (decisão de produto)
 Permitir designar um ou mais usuários como responsáveis pela atualização de status de cada projeto. As atualizações registradas (quem, quando, o que mudou) devem aparecer como histórico no detalhamento do projeto (`/dashboard/projetos/[id]`).
+
+*Decisão: não foi construído um campo de "responsável" dedicado nem histórico de mudanças. Em vez disso, o papel de "responsável por atualizar o status" passou a ser o próprio **gestor** da secretaria — que já só edita os projetos da(s) secretaria(s) vinculada(s) a ele (migration 003/009), e agora o **visualizador** também só vê a(s) sua(s) (migration 015). O modelo de acesso por secretaria substitui a necessidade de um campo de responsável separado. O histórico de mudanças (quem/quando/o quê) continua pendente — ver item 8 (Log de auditoria).*
 
 ## 2. CRUD de Metas Estratégicas ✅ Concluído
 Criar uma camada de "metas" entre objetivos e projetos. Cada objetivo estratégico pode ter várias metas, e os projetos passam a se vincular a metas (não diretamente ao objetivo). Precisa de tela própria em Configurações, formulário (`MetaForm`) e ajuste nas páginas que hoje relacionam projeto → objetivo.
@@ -13,8 +15,10 @@ Criar uma camada de "metas" entre objetivos e projetos. Cada objetivo estratégi
 ## 3. Relacionar objetivos/metas aos ODS (Objetivos de Desenvolvimento Sustentável da ONU)
 Permitir vincular um ou mais dos 17 ODS a cada objetivo ou meta estratégica. Útil para relatórios de impacto e prestação de contas. Precisa de tabela de referência com os 17 ODS (ícone, número, cor oficial) e relação N:N.
 
-## 4. Campo de gestão de custo do projeto
+## 4. Campo de gestão de custo do projeto ✅ Concluído (parcial)
 Adicionar controle financeiro ao projeto: valor orçado, valor empenhado/gasto, fonte de recurso. Pode evoluir para um histórico de lançamentos de custo por projeto, com indicador de % do orçamento utilizado.
+
+*Entregue: orçamento e executado já existiam; adicionado campo `fonte_recurso` (texto livre) no formulário e no detalhe do projeto. Não foi feita carga em massa a partir da planilha — a coluna "Recursos" da aba Geral só tinha 13 de 632 linhas preenchidas, dado real mas esparso demais para migrar automaticamente. Fica para preenchimento manual conforme necessário. O histórico de lançamentos de custo (múltiplos registros por projeto) não foi construído — ficaria como evolução futura se houver necessidade real.*
 
 ## 5. Avaliar mais "temas" de gerenciamento de projetos
 Investigar quais outras dimensões de PM vale a pena adicionar (riscos, equipe/responsáveis, dependências entre projetos, anexos/documentos, cronograma com marcos — já existe `marcos`). Definir prioridade após avaliação.

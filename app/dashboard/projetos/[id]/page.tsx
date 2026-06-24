@@ -196,6 +196,7 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
       data_fim:      projeto.data_fim,
       orcamento:     Number(projeto.orcamento),
       executado:     Number(projeto.executado),
+      fonte_recurso: projeto.fonte_recurso ?? null,
       tags:          projeto.tags ?? [],
       bairro:        projeto.bairro ?? '',
       lat:           projeto.lat ?? null,
@@ -616,6 +617,12 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
                   <span className="text-atlia-muted">Saldo disponível</span>
                   <span className="font-semibold text-atlia-blue">{formatCurrency(saldo)}</span>
                 </div>
+                {projeto.fonte_recurso && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-atlia-muted">Fonte de recurso</span>
+                    <span className="font-semibold text-gray-700">{projeto.fonte_recurso}</span>
+                  </div>
+                )}
               </div>
             </div>
 

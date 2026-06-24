@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Protege /configuracoes — somente admin
+    // Protege /configuracoes — admin (acesso total) ou gestor (só vê Usuários da própria secretaria)
     if (user && request.nextUrl.pathname.startsWith('/dashboard/configuracoes')) {
       const { data: usuario } = await supabase
         .from('usuarios')
@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
         .eq('id', user.id)
         .single()
 
-      if (usuario?.perfil !== 'admin') {
+      if (usuario?.perfil !== 'admin' && usuario?.perfil !== 'gestor') {
         const url = request.nextUrl.clone()
         url.pathname = '/dashboard'
         return NextResponse.redirect(url)

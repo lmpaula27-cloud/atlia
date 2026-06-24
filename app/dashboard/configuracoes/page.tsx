@@ -277,19 +277,28 @@ export default function ConfiguracoesPage() {
   const carregarUsuarios = useCallback(async () => {
     setCarregandoUsr(true)
     const supabase = createClient()
-    const { data } = await supabase
-      .from('usuarios')
-      .select('id, nome, cargo, perfil, ativo, secretaria_id, secretarias(nome), usuarios_secretarias(secretaria_id, secretarias(nome))')
-      .order('nome')
-    setUsuarios((data ?? []).map((u: any) => {
-      const vinculos: any[] = u.usuarios_secretarias ?? []
-      let ids: string[]   = vinculos.map(v => v.secretaria_id)
-      let nomes: string[] = vinculos.map(v => v.secretarias?.nome ?? '—')
-      // fallback legado: usa secretaria_id único se não houver vínculos
-      if (ids.length === 0 && u.secretaria_id) {
-        ids   = [u.secretaria_id]
-        nomes = [u.secretarias?.nome ?? '—']
-      }
+    // 3 consultas separadas (em vez de embed) — evita ambiguidade de relacionamento
+    // no PostgREST entre usuarios.secretaria_id e usuarios_secretarias, que pode
+    // fazer a consulta falhar silenciosamente e retornar a lista vazia.
+    const [{ data: usrs, error: errUsrs }, { data: vinculos }, { data: secs }] = await Promise.all([
+      supabase.from('usuarios').select('id, nome, cargo, perfil, ativo, secretaria_id').order('nome'),
+      supabase.from('usuarios_secretarias').select('usuario_id, secretaria_id'),
+      supabase.from('secretarias').select('id, nome'),
+    ])
+
+    if (errUsrs) {
+      setSucesso('')
+      setCarregandoUsr(false)
+      return
+    }
+
+    const nomePorSecId = new Map((secs ?? []).map((s: any) => [s.id, s.nome]))
+
+    setUsuarios((usrs ?? []).map((u: any) => {
+      let ids: string[] = (vinculos ?? []).filter((v: any) => v.usuario_id === u.id).map((v: any) => v.secretaria_id)
+      // fallback legado: usa secretaria_id único se não houver vínculos em usuarios_secretarias
+      if (ids.length === 0 && u.secretaria_id) ids = [u.secretaria_id]
+      const nomes = ids.map(id => nomePorSecId.get(id) ?? '—')
       return {
         id:              u.id,
         nome:            u.nome,
@@ -879,12 +888,22 @@ export default function ConfiguracoesPage() {
                   </div>
                   {perfilConvite !== 'admin' && (
                     <div className="col-span-2">
-                      <label className={labelCls}>
-                        {perfilConvite === 'gestor' ? 'Secretarias com acesso de gestão' : 'Secretarias visíveis para este usuário'}
-                        <span className="normal-case font-normal text-atlia-muted ml-2">
-                          ({secsConvite.length} selecionada{secsConvite.length !== 1 ? 's' : ''})
-                        </span>
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className={labelCls + ' mb-0'}>
+                          {perfilConvite === 'gestor' ? 'Secretarias com acesso de gestão' : 'Secretarias visíveis para este usuário'}
+                          <span className="normal-case font-normal text-atlia-muted ml-2">
+                            ({secsConvite.length} selecionada{secsConvite.length !== 1 ? 's' : ''})
+                          </span>
+                        </label>
+                        <button type="button"
+                          onClick={() => setSecsConvite(
+                            secsConvite.length === secretarias.filter(s => s.ativa).length
+                              ? [] : secretarias.filter(s => s.ativa).map(s => s.id)
+                          )}
+                          className="text-xs text-atlia-blue hover:underline font-medium shrink-0">
+                          {secsConvite.length === secretarias.filter(s => s.ativa).length ? 'Limpar todas' : 'Selecionar todas'}
+                        </button>
+                      </div>
                       <div className="border border-gray-200 rounded-lg p-3 max-h-44 overflow-y-auto grid grid-cols-2 gap-x-4 gap-y-1.5">
                         {secretarias.filter(s => s.ativa).map(s => (
                           <label key={s.id} className="flex items-center gap-2 cursor-pointer select-none py-0.5">
@@ -948,6 +967,12 @@ export default function ConfiguracoesPage() {
                         <td className="px-4 py-3.5 text-gray-600 text-xs">
                           {editandoSecsDe === u.id ? (
                             <div className="space-y-2">
+                              <button onClick={() => setSecsEdicao(
+                                secsEdicao.length === secretarias.filter(s => s.ativa).length
+                                  ? [] : secretarias.filter(s => s.ativa).map(s => s.id)
+                              )} className="text-xs text-atlia-blue hover:underline font-medium">
+                                {secsEdicao.length === secretarias.filter(s => s.ativa).length ? 'Limpar todas' : 'Selecionar todas'}
+                              </button>
                               <div className="border border-gray-200 rounded-lg p-2 max-h-36 overflow-y-auto bg-white space-y-1">
                                 {secretarias.filter(s => s.ativa).map(s => (
                                   <label key={s.id} className="flex items-center gap-2 cursor-pointer select-none">
