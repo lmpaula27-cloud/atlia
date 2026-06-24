@@ -75,10 +75,10 @@ export default function Sidebar({ municipio, perfil = 'visualizador' }: { munici
 
       {/* Rodapé */}
       <div className="px-3 py-4 border-t border-white/10 space-y-1">
-        {perfil === 'admin' && (
+        {(perfil === 'admin' || perfil === 'gestor') && (
           <Link href="/dashboard/configuracoes" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-white/8 hover:text-white transition-all">
             <Settings size={18} />
-            <span>Configurações</span>
+            <span>{perfil === 'admin' ? 'Configurações' : 'Usuários da Secretaria'}</span>
           </Link>
         )}
         <Link href="/dashboard/alterar-senha" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/50 hover:bg-white/8 hover:text-white transition-all">
