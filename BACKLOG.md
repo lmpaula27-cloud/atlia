@@ -39,8 +39,10 @@ Avisar usuários (in-app e/ou e-mail) quando: um indicador sair da meta, um proj
 ## 8. Log de auditoria
 Registrar quem alterou o quê e quando nas entidades principais (projetos, indicadores, status). Importante em gestão pública para rastreabilidade — hoje não há histórico de alterações, só o estado atual.
 
-## 9. Exportação de dados além do PDF
+## 9. Exportação de dados além do PDF ✅ Concluído
 Hoje só existe exportação de relatórios em PDF. Avaliar exportar para Excel/CSV (projetos, indicadores, medições) para uso em outras ferramentas da prefeitura.
+
+*Entregue: nova seção "Exportação de Dados" em `/dashboard/relatorios`, com botões de Excel e CSV para Projetos, Indicadores e Medições — exporta a base bruta completa (não o recorte de cada relatório), com nomes de colunas em português. Implementado client-side via biblioteca `xlsx`, sem necessidade de rota de API.*
 
 ## 10. Testes automatizados
 O projeto não tem nenhum teste (unitário ou e2e) hoje. Conforme o número de fluxos críticos crescer (convite, RLS multi-secretaria, relatórios), a falta de testes aumenta o risco de regressão silenciosa.

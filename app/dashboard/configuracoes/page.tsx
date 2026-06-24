@@ -904,7 +904,7 @@ export default function ConfiguracoesPage() {
                     <select value={perfilConvite} onChange={e => setPerfilConvite(e.target.value as any)} className={inputCls + ' bg-white'}>
                       <option value="admin">Administrador — acesso total</option>
                       <option value="gestor">Gestor — edita sua secretaria</option>
-                      <option value="visualizador">Visualizador — vê apenas sua secretaria</option>
+                      <option value="visualizador">Visualizador</option>
                     </select>
                   </div>
                   {perfilConvite !== 'admin' && (
