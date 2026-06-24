@@ -24,6 +24,11 @@ Criar pesos configuráveis: cada projeto tem um peso dentro da sua meta, cada me
 
 *Entregue: coluna `peso` em projetos/metas/objetivos (com os pesos reais dos 12 objetivos carregados da planilha), cálculos ponderados em todas as páginas (Objetivos, Metas, Mapa Estratégico, Painel Executivo, Relatórios), e novo indicador "Atingimento da Visão" ponderado por todos os objetivos.*
 
+## 13. Limpeza de indicadores demo + Análise da Carteira de Projetos ✅ Concluído
+Os 12 indicadores exibidos em `/dashboard/indicadores` eram dados de demonstração (seed da migration 002) que nunca foram substituídos por dados reais. Substituídos por uma seção de análise da carteira de projetos com gráficos reais.
+
+*Entregue: migração `014_limpar_indicadores_demo.sql` removendo os indicadores fictícios; nova seção "Análise da Carteira de Projetos" na página de Indicadores com gráficos de projetos por status, projetos atrasados, status por secretaria (barras empilhadas), projetos por secretaria e projetos por previsão de encerramento (ano). O CRUD de indicadores (KPIs) continua disponível, separado, para cadastro de indicadores reais no futuro.*
+
 ## 7. Notificações e alertas
 Avisar usuários (in-app e/ou e-mail) quando: um indicador sair da meta, um projeto atrasar (passar do `data_fim` sem concluir), ou um marco vencer. Hoje não existe nenhum mecanismo de alerta — a informação só aparece se alguém entrar e olhar.
 
