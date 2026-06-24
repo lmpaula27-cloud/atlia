@@ -347,7 +347,7 @@ export default function ConfiguracoesPage() {
           email:         emailConvite.trim(),
           nome:          nomeConvite.trim(),
           perfil:        perfilConvite,
-          secretaria_ids: perfilConvite === 'gestor' ? secsConvite : [],
+          secretaria_ids: perfilConvite !== 'admin' ? secsConvite : [],
         }),
       })
       const json = await res.json()
@@ -874,13 +874,13 @@ export default function ConfiguracoesPage() {
                     <select value={perfilConvite} onChange={e => setPerfilConvite(e.target.value as any)} className={inputCls + ' bg-white'}>
                       <option value="admin">Administrador — acesso total</option>
                       <option value="gestor">Gestor — edita sua secretaria</option>
-                      <option value="visualizador">Visualizador — somente leitura</option>
+                      <option value="visualizador">Visualizador — vê apenas sua secretaria</option>
                     </select>
                   </div>
-                  {perfilConvite === 'gestor' && (
+                  {perfilConvite !== 'admin' && (
                     <div className="col-span-2">
                       <label className={labelCls}>
-                        Secretarias com acesso de gestão
+                        {perfilConvite === 'gestor' ? 'Secretarias com acesso de gestão' : 'Secretarias visíveis para este usuário'}
                         <span className="normal-case font-normal text-atlia-muted ml-2">
                           ({secsConvite.length} selecionada{secsConvite.length !== 1 ? 's' : ''})
                         </span>
@@ -978,7 +978,7 @@ export default function ConfiguracoesPage() {
                                     <span key={n} className="bg-atlia-light text-atlia-navy px-2 py-0.5 rounded-full text-xs font-medium">{n}</span>
                                   ))
                               }
-                              {u.perfil === 'gestor' && (
+                              {u.perfil !== 'admin' && (
                                 <button onClick={() => abrirEdicaoSecs(u)} title="Editar secretarias"
                                   className="text-gray-300 hover:text-atlia-navy transition-colors ml-1">
                                   <Pencil size={13} />
