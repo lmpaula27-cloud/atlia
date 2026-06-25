@@ -32,6 +32,7 @@ interface ObjetivoRow {
 interface MetaRow {
   id: string; nome: string; descricao: string | null
   objetivo_id: string; objetivo_nome: string; pct_atual: number; peso: number
+  ods_ids: string[]; ods: { numero: number; cor: string }[]
 }
 interface UsuarioRow {
   id: string; nome: string; cargo: string | null
@@ -248,7 +249,7 @@ export default function ConfiguracoesPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('metas')
-      .select('id, nome, descricao, pct_atual, peso, objetivo_id, objetivos(nome)')
+      .select('id, nome, descricao, pct_atual, peso, objetivo_id, objetivos(nome), metas_ods(ods_id, ods(numero, cor))')
       .order('objetivo_id')
     setMetas((data ?? []).map((m: any) => ({
       id:            m.id,
@@ -258,6 +259,8 @@ export default function ConfiguracoesPage() {
       objetivo_nome: m.objetivos?.nome ?? '—',
       pct_atual:     m.pct_atual,
       peso:          m.peso ?? 1,
+      ods_ids:       (m.metas_ods ?? []).map((mo: any) => mo.ods_id),
+      ods:           (m.metas_ods ?? []).map((mo: any) => ({ numero: mo.ods?.numero, cor: mo.ods?.cor })),
     })))
     setCarregandoMet(false)
   }, [])
@@ -813,6 +816,7 @@ export default function ConfiguracoesPage() {
                     <tr className="bg-atlia-gray border-b border-gray-100">
                       <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Meta</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Objetivo</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">ODS</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-28">Progresso</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider w-16">Peso</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Ações</th>
@@ -820,7 +824,7 @@ export default function ConfiguracoesPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {metas.length === 0 ? (
-                      <tr><td colSpan={5} className="py-12 text-center text-atlia-muted">
+                      <tr><td colSpan={6} className="py-12 text-center text-atlia-muted">
                         <Flag size={24} className="mx-auto mb-2 opacity-20" />
                         Nenhuma meta cadastrada ainda.
                       </td></tr>
@@ -831,6 +835,20 @@ export default function ConfiguracoesPage() {
                           {me.descricao && <p className="text-xs text-atlia-muted mt-0.5 line-clamp-1">{me.descricao}</p>}
                         </td>
                         <td className="px-4 py-3.5 text-gray-600 text-xs">{me.objetivo_nome}</td>
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {me.ods.length === 0
+                              ? <span className="text-xs text-gray-300">—</span>
+                              : me.ods.map(o => (
+                                  <span key={o.numero} title={`ODS ${o.numero}`}
+                                    className="w-5 h-5 rounded text-white text-[10px] font-bold flex items-center justify-center"
+                                    style={{ backgroundColor: o.cor }}>
+                                    {o.numero}
+                                  </span>
+                                ))
+                            }
+                          </div>
+                        </td>
                         <td className="px-4 py-3.5 text-center">
                           <span className={`text-sm font-bold ${me.pct_atual >= 70 ? 'text-atlia-green' : me.pct_atual >= 40 ? 'text-yellow-600' : 'text-atlia-red'}`}>
                             {me.pct_atual}%
@@ -847,7 +865,7 @@ export default function ConfiguracoesPage() {
                           ) : (
                             <div className="flex items-center justify-center gap-2">
                               <button onClick={() => {
-                                setMetaEdit({ id: me.id, nome: me.nome, descricao: me.descricao ?? '', objetivo_id: me.objetivo_id, pct_atual: me.pct_atual, peso: me.peso })
+                                setMetaEdit({ id: me.id, nome: me.nome, descricao: me.descricao ?? '', objetivo_id: me.objetivo_id, pct_atual: me.pct_atual, peso: me.peso, ods_ids: me.ods_ids })
                                 setFormMetAberto(true)
                               }} className="p-1.5 rounded-lg hover:bg-atlia-light text-atlia-muted hover:text-atlia-navy transition-colors">
                                 <Pencil size={14} />

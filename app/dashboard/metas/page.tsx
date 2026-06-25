@@ -14,6 +14,7 @@ interface MetaUI {
   concluidos: number
   emAndamento: number
   atrasados: number
+  ods: { numero: number; cor: string }[]
 }
 
 interface ObjetivoUI {
@@ -52,7 +53,7 @@ export default function MetasPage() {
     const [{ data: objRaw }, { data: projRaw }] = await Promise.all([
       supabase
         .from('objetivos')
-        .select('id, nome, eixos(nome, cor), metas(id, nome, pct_atual, peso)')
+        .select('id, nome, eixos(nome, cor), metas(id, nome, pct_atual, peso, metas_ods(ods(numero, cor)))')
         .order('eixo_id'),
       supabase
         .from('projetos')
@@ -72,6 +73,7 @@ export default function MetasPage() {
             nome:          me.nome,
             pct_atual:     me.pct_atual,
             peso:          me.peso ?? 1,
+            ods:           (me.metas_ods ?? []).map((mo: any) => ({ numero: mo.ods?.numero, cor: mo.ods?.cor })),
             totalProjetos: pMetas.length,
             concluidos:    pMetas.filter((p: any) => p.status === 'concluido').length,
             emAndamento:   pMetas.filter((p: any) => p.status === 'em_andamento' || p.status === 'atencao').length,
@@ -211,6 +213,17 @@ export default function MetasPage() {
                             <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium" title="Peso dentro do objetivo">
                               peso {meta.peso}
                             </span>
+                            {meta.ods.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                {meta.ods.map(o => (
+                                  <span key={o.numero} title={`ODS ${o.numero}`}
+                                    className="w-4 h-4 rounded text-white text-[9px] font-bold flex items-center justify-center"
+                                    style={{ backgroundColor: o.cor }}>
+                                    {o.numero}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <div className="flex items-center gap-1.5 text-xs text-gray-500">
                               <FolderKanban size={12} className="text-gray-400" />
                               {meta.totalProjetos} projeto{meta.totalProjetos !== 1 ? 's' : ''}

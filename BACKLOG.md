@@ -12,8 +12,10 @@ Criar uma camada de "metas" entre objetivos e projetos. Cada objetivo estratégi
 
 *Entregue: tabela `metas` + RLS, `MetaForm.tsx`, aba em Configurações, página própria `/dashboard/metas` no menu lateral, e carga real das 322 metas extraídas da planilha.*
 
-## 3. Relacionar objetivos/metas aos ODS (Objetivos de Desenvolvimento Sustentável da ONU)
+## 3. Relacionar objetivos/metas aos ODS (Objetivos de Desenvolvimento Sustentável da ONU) ✅ Concluído
 Permitir vincular um ou mais dos 17 ODS a cada objetivo ou meta estratégica. Útil para relatórios de impacto e prestação de contas. Precisa de tabela de referência com os 17 ODS (ícone, número, cor oficial) e relação N:N.
+
+*Entregue: vínculo feito a nível de **meta** (não objetivo), por decisão de produto. Tabela `ods` (17 ODS oficiais com cor) + `metas_ods` (N:N). Seleção múltipla de ODS no `MetaForm` (badges coloridos clicáveis). Badges exibidos em `/dashboard/metas` e na aba Metas de Configurações. Carga real de 305 metas vinculadas a partir da coluna "ODS" da aba Meta da planilha.*
 
 ## 4. Campo de gestão de custo do projeto ✅ Concluído (parcial)
 Adicionar controle financeiro ao projeto: valor orçado, valor empenhado/gasto, fonte de recurso. Pode evoluir para um histórico de lançamentos de custo por projeto, com indicador de % do orçamento utilizado.

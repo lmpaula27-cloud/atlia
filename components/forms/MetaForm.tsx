@@ -10,6 +10,7 @@ export interface MetaEditavel {
   objetivo_id: string
   pct_atual: number
   peso: number
+  ods_ids?: string[]
 }
 
 interface Props {
@@ -29,8 +30,10 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
   const [objetivoId,  setObjetivoId]  = useState(metaInicial?.objetivo_id ?? '')
   const [pctAtual,    setPctAtual]    = useState(metaInicial?.pct_atual   ?? 0)
   const [peso,        setPeso]        = useState(metaInicial?.peso        ?? 1)
+  const [odsSelecionados, setOdsSelecionados] = useState<string[]>(metaInicial?.ods_ids ?? [])
 
   const [objetivos,      setObjetivos]      = useState<{ id: string; nome: string }[]>([])
+  const [odsOpts,         setOdsOpts]        = useState<{ id: string; numero: number; nome: string; cor: string }[]>([])
   const [carregandoOpts, setCarregandoOpts] = useState(true)
   const [salvando,       setSalvando]       = useState(false)
   const [erro,           setErro]           = useState('')
@@ -38,12 +41,20 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
   useEffect(() => {
     async function carregar() {
       const supabase = createClient()
-      const { data } = await supabase.from('objetivos').select('id, nome').order('nome')
-      setObjetivos(data ?? [])
+      const [{ data: objs }, { data: ods }] = await Promise.all([
+        supabase.from('objetivos').select('id, nome').order('nome'),
+        supabase.from('ods').select('id, numero, nome, cor').order('numero'),
+      ])
+      setObjetivos(objs ?? [])
+      setOdsOpts(ods ?? [])
       setCarregandoOpts(false)
     }
     carregar()
   }, [])
+
+  function toggleOds(id: string) {
+    setOdsSelecionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -72,12 +83,25 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
     }
 
     let erroMsg: string | null = null
-    if (editando && metaInicial?.id) {
-      const { error } = await supabase.from('metas').update(dados).eq('id', metaInicial.id)
+    let metaId = metaInicial?.id ?? null
+
+    if (editando && metaId) {
+      const { error } = await supabase.from('metas').update(dados).eq('id', metaId)
       erroMsg = error?.message ?? null
     } else {
-      const { error } = await supabase.from('metas').insert(dados)
+      const { data: nova, error } = await supabase.from('metas').insert(dados).select('id').single()
       erroMsg = error?.message ?? null
+      metaId = nova?.id ?? null
+    }
+
+    if (!erroMsg && metaId) {
+      await supabase.from('metas_ods').delete().eq('meta_id', metaId)
+      if (odsSelecionados.length > 0) {
+        const { error: errOds } = await supabase.from('metas_ods').insert(
+          odsSelecionados.map(odsId => ({ meta_id: metaId, ods_id: odsId }))
+        )
+        erroMsg = errOds?.message ?? null
+      }
     }
 
     setSalvando(false)
@@ -142,6 +166,37 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-gray-100" />
+
+      <div>
+        <p className="text-xs font-bold text-atlia-muted uppercase tracking-wider mb-1">
+          ODS — Objetivos de Desenvolvimento Sustentável
+        </p>
+        <p className="text-xs text-atlia-muted mb-4">Selecione um ou mais ODS relacionados a esta meta (opcional)</p>
+        <div className="grid grid-cols-6 gap-2">
+          {odsOpts.map(o => {
+            const ativo = odsSelecionados.includes(o.id)
+            return (
+              <button
+                key={o.id}
+                type="button"
+                title={o.nome}
+                onClick={() => toggleOds(o.id)}
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold transition-all"
+                style={{ backgroundColor: o.cor, opacity: ativo ? 1 : 0.25, transform: ativo ? 'scale(1)' : 'scale(0.92)' }}
+              >
+                {o.numero}
+              </button>
+            )
+          })}
+        </div>
+        {odsSelecionados.length > 0 && (
+          <p className="text-xs text-atlia-muted mt-2">
+            {odsOpts.filter(o => odsSelecionados.includes(o.id)).map(o => `ODS ${o.numero}`).join(', ')}
+          </p>
+        )}
       </div>
 
       {erro && (
