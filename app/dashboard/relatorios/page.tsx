@@ -205,67 +205,71 @@ async function fetchDadosRelatorio(relId: string): Promise<DadosRelatorio> {
   return { municipioNome, munData, projetos, indicadores, eixos }
 }
 
-/* ═══════════════════════════════════════════════════ Exportação de dados brutos */
+/* ═══════════════════════════════════════════════════ Exportação por relatório */
 
-async function buscarProjetosExport() {
-  const supabase = createClient()
-  const { data } = await supabase
-    .from('projetos')
-    .select('nome, descricao, status, prioridade, tipo_ganho, pct, peso, data_inicio, data_fim, orcamento, executado, fonte_recurso, bairro, tags, secretarias(nome), objetivos(nome), metas(nome)')
-    .order('nome')
-  return (data ?? []).map((p: any) => ({
-    'Nome':            p.nome,
-    'Descrição':       p.descricao ?? '',
-    'Secretaria':      p.secretarias?.nome ?? '',
-    'Objetivo':        p.objetivos?.nome ?? '',
-    'Meta':            p.metas?.nome ?? '',
-    'Status':          statusLabel[p.status] ?? p.status,
-    'Prioridade':      p.prioridade,
-    'Tipo de ganho':   p.tipo_ganho,
-    'Progresso (%)':   p.pct,
-    'Peso':            p.peso,
-    'Data início':     p.data_inicio ?? '',
-    'Data fim':        p.data_fim ?? '',
-    'Orçamento':       p.orcamento,
-    'Executado':       p.executado,
-    'Fonte de recurso': p.fonte_recurso ?? '',
-    'Bairro':          p.bairro ?? '',
-    'Tags':            (p.tags ?? []).join(', '),
-  }))
-}
+/** Converte os dados já carregados do relatório em linhas tabulares para Excel/CSV. */
+function dadosParaTabela(rel: Relatorio, dados: DadosRelatorio): Record<string, string | number>[] {
+  const { projetos, indicadores, eixos } = dados
 
-async function buscarIndicadoresExport() {
-  const supabase = createClient()
-  const { data } = await supabase
-    .from('indicadores')
-    .select('nome, unidade, meta, valor_atual, menor_melhor, ano_referencia, secretarias(nome)')
-    .order('nome')
-  return (data ?? []).map((i: any) => ({
-    'Nome':            i.nome,
-    'Secretaria':      i.secretarias?.nome ?? '',
-    'Unidade':         i.unidade,
-    'Meta':            i.meta,
-    'Valor atual':     i.valor_atual,
-    'Menor é melhor':  i.menor_melhor ? 'Sim' : 'Não',
-    'Ano referência':  i.ano_referencia,
-    'Atingimento (%)': calcAtingimento(i),
-  }))
-}
-
-async function buscarMedicoesExport() {
-  const supabase = createClient()
-  const { data } = await supabase
-    .from('medicoes_indicadores')
-    .select('mes, ano, valor, indicadores(nome, unidade)')
-    .order('ano', { ascending: false })
-    .order('mes', { ascending: false })
-  return (data ?? []).map((m: any) => ({
-    'Indicador': m.indicadores?.nome ?? '',
-    'Mês':       m.mes,
-    'Ano':       m.ano,
-    'Valor':     m.valor,
-    'Unidade':   m.indicadores?.unidade ?? '',
-  }))
+  if (rel.id === '1') {
+    return projetos.map((p: any) => ({
+      'Projeto':     p.nome,
+      'Secretaria':  p.secretarias?.nome ?? '',
+      'Status':      statusLabel[p.status] ?? p.status,
+      'Progresso (%)': p.pct ?? 0,
+      'Orçamento':   p.orcamento ?? 0,
+      'Executado':   p.executado ?? 0,
+      'Prazo':       p.data_fim ?? '',
+    }))
+  }
+  if (rel.id === '2') {
+    return projetos.map((p: any) => ({
+      'Projeto':     p.nome,
+      'Secretaria':  p.secretarias?.nome ?? '',
+      'Responsável': p.secretarias?.responsavel ?? '',
+      'Status':      statusLabel[p.status] ?? p.status,
+      'Progresso (%)': p.pct ?? 0,
+      'Prazo':       p.data_fim ?? '',
+    }))
+  }
+  if (rel.id === '3') {
+    return indicadores.map((i: any) => ({
+      'Indicador':      i.nome,
+      'Secretaria':     i.secretarias?.nome ?? '',
+      'Valor atual':    i.valor_atual ?? '',
+      'Meta':           i.meta ?? '',
+      'Unidade':        i.unidade ?? '',
+      'Atingimento (%)': calcAtingimento(i),
+    }))
+  }
+  if (rel.id === '4' || rel.id === '5') {
+    const linhas: Record<string, string | number>[] = []
+    eixos.forEach((eixo: any) => {
+      ;(eixo.objetivos ?? []).forEach((obj: any) => {
+        linhas.push({
+          'Eixo':              eixo.nome,
+          'Objetivo':          obj.nome,
+          'Peso':              obj.peso ?? 1,
+          'Atingimento (%)':   obj.pct_atual ?? 0,
+        })
+      })
+    })
+    return linhas
+  }
+  if (rel.id === '6') {
+    return projetos.map((p: any) => {
+      const orc = p.orcamento ?? 0
+      const exe = p.executado ?? 0
+      return {
+        'Projeto':       p.nome,
+        'Secretaria':    p.secretarias?.nome ?? '',
+        'Orçamento':     orc,
+        'Executado':     exe,
+        'Execução (%)':  orc > 0 ? Math.round((exe / orc) * 100) : 0,
+      }
+    })
+  }
+  return []
 }
 
 /* ═══════════════════════════════════════════════════════ PDF helpers */
@@ -921,21 +925,26 @@ export default function RelatoriosPage() {
   const [gerandoPDF, setGerandoPDF] = useState(false)
   const [preview, setPreview]       = useState<{ rel: Relatorio; dados: DadosRelatorio } | null>(null)
   const [filtroCategoria, setFiltroCategoria] = useState('todos')
-  const [exportando, setExportando] = useState<string | null>(null)
+  const [exportando, setExportando] = useState<'excel' | 'csv' | null>(null)
+  const [erroExport, setErroExport] = useState('')
 
-  async function handleExportar(tipo: 'projetos' | 'indicadores' | 'medicoes', formato: 'csv' | 'excel') {
-    const chave = `${tipo}-${formato}`
-    setExportando(chave)
+  async function handleExportarRelatorio(formato: 'excel' | 'csv') {
+    if (!preview) return
+    setExportando(formato)
+    setErroExport('')
     try {
-      const buscar = tipo === 'projetos' ? buscarProjetosExport
-        : tipo === 'indicadores' ? buscarIndicadoresExport
-        : buscarMedicoesExport
-      const linhas = await buscar()
-      if (linhas.length === 0) return
+      const linhas = dadosParaTabela(preview.rel, preview.dados)
+      if (linhas.length === 0) {
+        setErroExport('Não há dados para exportar neste relatório.')
+        return
+      }
       const colunas = Object.keys(linhas[0])
-      const nomeArquivo = `atlia_${tipo}_${new Date().toISOString().slice(0, 10)}`
-      if (formato === 'csv') exportarCSV(nomeArquivo, colunas, linhas as any)
-      else await exportarExcel(nomeArquivo, tipo, colunas, linhas as any)
+      const nomeArquivo = `atlia_${preview.rel.titulo.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${new Date().toISOString().slice(0, 10)}`
+      if (formato === 'csv') exportarCSV(nomeArquivo, colunas, linhas)
+      else await exportarExcel(nomeArquivo, preview.rel.titulo.slice(0, 30), colunas, linhas)
+    } catch (err) {
+      console.error('Erro ao exportar relatório:', err)
+      setErroExport('Não foi possível gerar o arquivo. Tente novamente.')
     } finally {
       setExportando(null)
     }
@@ -943,6 +952,7 @@ export default function RelatoriosPage() {
 
   async function handleVisualizar(rel: Relatorio) {
     setGerando(rel.id)
+    setErroExport('')
     try {
       const dados = await fetchDadosRelatorio(rel.id)
       setPreview({ rel, dados })
@@ -1033,50 +1043,6 @@ export default function RelatoriosPage() {
           })}
         </div>
 
-        {/* Exportação de dados brutos */}
-        <div>
-          <h2 className="font-semibold text-atlia-navy mb-1">Exportação de Dados</h2>
-          <p className="text-sm text-atlia-muted mb-4">Baixe a base completa em Excel ou CSV para uso em outras ferramentas</p>
-        </div>
-        <div className="grid grid-cols-3 gap-5">
-          {([
-            { tipo: 'projetos' as const,    titulo: 'Projetos',    icone: FolderKanban },
-            { tipo: 'indicadores' as const, titulo: 'Indicadores', icone: TrendingUp   },
-            { tipo: 'medicoes' as const,    titulo: 'Medições',    icone: BarChart3    },
-          ]).map(({ tipo, titulo, icone: Icone }) => (
-            <div key={tipo} className="card">
-              <div className="flex items-center gap-2 mb-3">
-                <Icone size={16} className="text-atlia-navy" />
-                <h3 className="font-semibold text-atlia-navy text-sm">{titulo}</h3>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleExportar(tipo, 'excel')}
-                  disabled={!!exportando}
-                  className="flex-1 flex items-center justify-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg hover:border-atlia-navy hover:text-atlia-navy transition-colors disabled:opacity-60"
-                >
-                  {exportando === `${tipo}-excel`
-                    ? <Loader2 size={13} className="animate-spin" />
-                    : <FileSpreadsheet size={13} />
-                  }
-                  Excel
-                </button>
-                <button
-                  onClick={() => handleExportar(tipo, 'csv')}
-                  disabled={!!exportando}
-                  className="flex-1 flex items-center justify-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg hover:border-atlia-navy hover:text-atlia-navy transition-colors disabled:opacity-60"
-                >
-                  {exportando === `${tipo}-csv`
-                    ? <Loader2 size={13} className="animate-spin" />
-                    : <Sheet size={13} />
-                  }
-                  CSV
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
         {/* Nota */}
         <div className="bg-atlia-light border border-atlia-navy/20 rounded-xl p-4 flex items-start gap-3">
           <FileText size={18} className="text-atlia-navy shrink-0 mt-0.5" />
@@ -1084,7 +1050,7 @@ export default function RelatoriosPage() {
             <p className="text-sm font-semibold text-atlia-navy">Dados em tempo real</p>
             <p className="text-sm text-atlia-muted mt-0.5">
               Clique em <strong>Visualizar</strong> para ver o relatório na tela com os dados atuais.
-              Use <strong>Baixar PDF</strong> dentro da visualização para exportar.
+              Dentro da visualização, exporte em <strong>PDF</strong>, <strong>Excel</strong> ou <strong>CSV</strong>.
             </p>
           </div>
         </div>
@@ -1103,6 +1069,24 @@ export default function RelatoriosPage() {
                   <p className="text-xs text-atlia-muted">Visualização com dados atuais · clique fora para fechar</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleExportarRelatorio('excel')}
+                    disabled={!!exportando}
+                    className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg
+                      hover:border-atlia-navy hover:text-atlia-navy transition-colors disabled:opacity-60"
+                  >
+                    {exportando === 'excel' ? <Loader2 size={13} className="animate-spin" /> : <FileSpreadsheet size={13} />}
+                    Excel
+                  </button>
+                  <button
+                    onClick={() => handleExportarRelatorio('csv')}
+                    disabled={!!exportando}
+                    className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg
+                      hover:border-atlia-navy hover:text-atlia-navy transition-colors disabled:opacity-60"
+                  >
+                    {exportando === 'csv' ? <Loader2 size={13} className="animate-spin" /> : <Sheet size={13} />}
+                    CSV
+                  </button>
                   <button
                     onClick={handleGerarPDF}
                     disabled={gerandoPDF}
@@ -1124,11 +1108,33 @@ export default function RelatoriosPage() {
                 </div>
               </div>
 
+              {erroExport && (
+                <div className="px-6 py-2 bg-red-50 border-b border-red-100 text-red-600 text-xs">{erroExport}</div>
+              )}
+
               {/* Report content */}
               <RelatorioPreview rel={preview.rel} dados={preview.dados} />
 
               {/* Bottom bar */}
               <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-3 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => handleExportarRelatorio('excel')}
+                  disabled={!!exportando}
+                  className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg
+                    hover:border-atlia-navy hover:text-atlia-navy transition-colors disabled:opacity-60"
+                >
+                  {exportando === 'excel' ? <Loader2 size={13} className="animate-spin" /> : <FileSpreadsheet size={13} />}
+                  Excel
+                </button>
+                <button
+                  onClick={() => handleExportarRelatorio('csv')}
+                  disabled={!!exportando}
+                  className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg
+                    hover:border-atlia-navy hover:text-atlia-navy transition-colors disabled:opacity-60"
+                >
+                  {exportando === 'csv' ? <Loader2 size={13} className="animate-spin" /> : <Sheet size={13} />}
+                  CSV
+                </button>
                 <button
                   onClick={handleGerarPDF}
                   disabled={gerandoPDF}
