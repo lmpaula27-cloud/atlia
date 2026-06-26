@@ -38,8 +38,10 @@ Os 12 indicadores exibidos em `/dashboard/indicadores` eram dados de demonstraç
 ## 7. Notificações e alertas
 Avisar usuários (in-app e/ou e-mail) quando: um indicador sair da meta, um projeto atrasar (passar do `data_fim` sem concluir), ou um marco vencer. Hoje não existe nenhum mecanismo de alerta — a informação só aparece se alguém entrar e olhar.
 
-## 8. Log de auditoria
+## 8. Log de auditoria ✅ Concluído
 Registrar quem alterou o quê e quando nas entidades principais (projetos, indicadores, status). Importante em gestão pública para rastreabilidade — hoje não há histórico de alterações, só o estado atual.
+
+*Entregue: tabela `log_auditoria` + função de trigger genérica (`fn_log_auditoria`) aplicada via triggers em `projetos`, `indicadores`, `metas`, `objetivos` e `usuarios` — captura automaticamente todo insert/update/delete, com usuário, ação e o JSON antes/depois. Nova aba "Auditoria" em Configurações (admin-only): lista as últimas 200 alterações, filtro por entidade, clique na linha expande o diff campo a campo (de → para). Funciona via trigger no banco, então não depende de nenhuma tela específica registrar a ação — pega tudo, inclusive alterações via SQL direto.*
 
 ## 9. Exportação de dados além do PDF ✅ Concluído
 Hoje só existe exportação de relatórios em PDF. Avaliar exportar para Excel/CSV (projetos, indicadores, medições) para uso em outras ferramentas da prefeitura.

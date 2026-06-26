@@ -10,12 +10,12 @@ import {
   Building2, Users, CreditCard, Layers, Compass, Target, Flag,
   Save, Plus, Pencil, Trash2, CheckCircle2,
   Crown, Phone, Mail, Globe, Calendar,
-  AlertCircle, Loader2, XCircle, Inbox,
+  AlertCircle, Loader2, XCircle, Inbox, History, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 
-type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'metas' | 'usuarios' | 'leads' | 'plano'
+type Aba = 'municipio' | 'secretarias' | 'eixos' | 'objetivos' | 'metas' | 'usuarios' | 'leads' | 'plano' | 'auditoria'
 
 // ── Tipos ──────────────────────────────────────────────────────
 interface SecretariaRow {
@@ -45,6 +45,12 @@ interface LeadRow {
   email: string; telefone: string | null; interesse: string
   status: string; criado_em: string
 }
+interface LogRow {
+  id: string; tabela: string; acao: string; created_at: string
+  usuario_nome: string
+  dados_antigos: Record<string, any> | null
+  dados_novos: Record<string, any> | null
+}
 
 const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-atlia-blue focus:ring-1 focus:ring-atlia-blue/20 transition-all'
 const labelCls = 'block text-xs font-semibold text-atlia-muted uppercase tracking-wider mb-1.5'
@@ -66,6 +72,41 @@ const leadInteresseLabel: Record<string, string> = {
   demo:        'Demonstração',
   consultoria: 'Consultoria',
   ambos:       'Plataforma + Consultoria',
+}
+
+const tabelaLabel: Record<string, string> = {
+  projetos: 'Projeto', indicadores: 'Indicador', metas: 'Meta', objetivos: 'Objetivo', usuarios: 'Usuário',
+}
+
+const acaoInfo: Record<string, { label: string; cor: string }> = {
+  insert: { label: 'Criado',    cor: 'bg-green-100 text-green-700' },
+  update: { label: 'Editado',   cor: 'bg-blue-100 text-blue-700'   },
+  delete: { label: 'Excluído',  cor: 'bg-red-100 text-red-700'     },
+}
+
+const CAMPOS_IGNORADOS_LOG = new Set(['id', 'municipio_id', 'created_at', 'updated_at'])
+
+function nomeDoRegistroLog(log: LogRow): string {
+  return (log.dados_novos?.nome ?? log.dados_antigos?.nome ?? '—') as string
+}
+
+function diffLog(log: LogRow): { campo: string; de: string; para: string }[] {
+  const antigos = log.dados_antigos ?? {}
+  const novos   = log.dados_novos ?? {}
+  const campos  = new Set([...Object.keys(antigos), ...Object.keys(novos)])
+  const out: { campo: string; de: string; para: string }[] = []
+  campos.forEach(campo => {
+    if (CAMPOS_IGNORADOS_LOG.has(campo)) return
+    const de   = antigos[campo]
+    const para = novos[campo]
+    if (JSON.stringify(de) === JSON.stringify(para)) return
+    out.push({
+      campo,
+      de:   de   === undefined || de   === null ? '—' : String(de),
+      para: para === undefined || para === null ? '—' : String(para),
+    })
+  })
+  return out
 }
 
 function AbaBtn({ id, label, icon: Icon, ativa, onClick }: {
@@ -423,6 +464,32 @@ export default function ConfiguracoesPage() {
     setSucesso('Lead excluído.')
   }
 
+  // ── Auditoria ─────────────────────────────────────────────
+  const [logs, setLogs]                     = useState<LogRow[]>([])
+  const [carregandoLog, setCarregandoLog]   = useState(true)
+  const [filtroTabelaLog, setFiltroTabelaLog] = useState('todas')
+  const [logExpandido, setLogExpandido]     = useState<string | null>(null)
+
+  const carregarAuditoria = useCallback(async () => {
+    setCarregandoLog(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('log_auditoria')
+      .select('id, tabela, acao, created_at, dados_antigos, dados_novos, usuarios(nome)')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    setLogs((data ?? []).map((l: any) => ({
+      id:            l.id,
+      tabela:        l.tabela,
+      acao:          l.acao,
+      created_at:    l.created_at,
+      usuario_nome:  l.usuarios?.nome ?? 'Sistema',
+      dados_antigos: l.dados_antigos,
+      dados_novos:   l.dados_novos,
+    })))
+    setCarregandoLog(false)
+  }, [])
+
   // ── Carrega ao trocar de aba ─────────────────────────────
   useEffect(() => {
     if (aba === 'municipio')   carregarMunicipio()
@@ -432,7 +499,8 @@ export default function ConfiguracoesPage() {
     if (aba === 'metas')      { carregarMetas();     carregarObjetivos() }
     if (aba === 'usuarios')   { carregarUsuarios();  carregarSecretarias() }
     if (aba === 'leads')       carregarLeads()
-  }, [aba, carregarMunicipio, carregarSecretarias, carregarEixos, carregarObjetivos, carregarMetas, carregarUsuarios, carregarLeads])
+    if (aba === 'auditoria')   carregarAuditoria()
+  }, [aba, carregarMunicipio, carregarSecretarias, carregarEixos, carregarObjetivos, carregarMetas, carregarUsuarios, carregarLeads, carregarAuditoria])
 
   // ── Render ───────────────────────────────────────────────
   return (
@@ -457,6 +525,7 @@ export default function ConfiguracoesPage() {
           <AbaBtn id="usuarios"    label="Usuários"    icon={Users}     ativa={aba==='usuarios'}    onClick={() => setAba('usuarios')}    />
           <AbaBtn id="leads"       label="Leads"       icon={Inbox}     ativa={aba==='leads'}       onClick={() => setAba('leads')}       />
           <AbaBtn id="plano"       label="Plano"       icon={CreditCard} ativa={aba==='plano'}      onClick={() => setAba('plano')}       />
+          <AbaBtn id="auditoria"   label="Auditoria"   icon={History}    ativa={aba==='auditoria'}  onClick={() => setAba('auditoria')}   />
         </div>
       )}
 
@@ -1217,6 +1286,105 @@ export default function ConfiguracoesPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── ABA AUDITORIA ── */}
+        {aba === 'auditoria' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-atlia-muted">
+                {logs.length} registro(s) — últimas 200 alterações em projetos, indicadores, metas, objetivos e usuários
+              </p>
+              <div className="flex items-center gap-2">
+                <AlertCircle size={14} className="text-atlia-muted" />
+                <select value={filtroTabelaLog} onChange={e => setFiltroTabelaLog(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 outline-none">
+                  <option value="todas">Todas as entidades</option>
+                  {Object.keys(tabelaLabel).map(t => <option key={t} value={t}>{tabelaLabel[t]}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="card p-0 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-atlia-gray border-b border-gray-100">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Quando</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Usuário</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Entidade</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-atlia-muted uppercase tracking-wider">Ação</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {carregandoLog ? (
+                    <tr><td colSpan={5} className="py-12 text-center text-atlia-muted">
+                      <Loader2 size={20} className="mx-auto mb-2 animate-spin opacity-40" />Carregando…
+                    </td></tr>
+                  ) : logs.filter(l => filtroTabelaLog === 'todas' || l.tabela === filtroTabelaLog).length === 0 ? (
+                    <tr><td colSpan={5} className="py-12 text-center text-atlia-muted">
+                      <History size={24} className="mx-auto mb-2 opacity-20" />
+                      Nenhum registro de auditoria ainda.
+                    </td></tr>
+                  ) : logs.filter(l => filtroTabelaLog === 'todas' || l.tabela === filtroTabelaLog).map(log => {
+                    const aberto = logExpandido === log.id
+                    const diffs = diffLog(log)
+                    return (
+                      <React.Fragment key={log.id}>
+                        <tr className="hover:bg-atlia-gray/40 transition-colors cursor-pointer"
+                          onClick={() => setLogExpandido(aberto ? null : log.id)}>
+                          <td className="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleDateString('pt-BR')} {new Date(log.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-4 py-3 text-gray-700">{log.usuario_nome}</td>
+                          <td className="px-4 py-3 text-gray-700">
+                            <span className="font-medium">{tabelaLabel[log.tabela] ?? log.tabela}</span>
+                            <span className="text-xs text-atlia-muted ml-1.5">{nomeDoRegistroLog(log)}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${acaoInfo[log.acao]?.cor ?? 'bg-gray-100 text-gray-600'}`}>
+                              {acaoInfo[log.acao]?.label ?? log.acao}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400">
+                            {aberto ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                          </td>
+                        </tr>
+                        {aberto && (
+                          <tr className="bg-atlia-gray/30">
+                            <td colSpan={5} className="px-8 py-4">
+                              {diffs.length === 0 ? (
+                                <p className="text-xs text-atlia-muted italic">Sem alterações de campos para exibir.</p>
+                              ) : (
+                                <table className="text-xs w-full max-w-2xl">
+                                  <thead>
+                                    <tr className="text-atlia-muted">
+                                      <th className="text-left pb-1.5 pr-4 font-semibold">Campo</th>
+                                      <th className="text-left pb-1.5 pr-4 font-semibold">De</th>
+                                      <th className="text-left pb-1.5 font-semibold">Para</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {diffs.map(d => (
+                                      <tr key={d.campo} className="border-t border-gray-200/60">
+                                        <td className="py-1.5 pr-4 font-medium text-gray-700">{d.campo}</td>
+                                        <td className="py-1.5 pr-4 text-red-600 max-w-xs truncate">{d.de}</td>
+                                        <td className="py-1.5 text-green-700 max-w-xs truncate">{d.para}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
