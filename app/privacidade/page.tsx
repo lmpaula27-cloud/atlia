@@ -30,9 +30,10 @@ export default function PrivacidadePage() {
 
           <section>
             <p>
-              O <strong>Atlia</strong> ("nós", "nosso" ou "plataforma") é uma plataforma de gestão estratégica
-              municipal. Esta Política de Privacidade explica como coletamos, usamos, armazenamos e protegemos
-              os dados pessoais de visitantes do nosso site e de usuários da plataforma, em conformidade com a
+              O <strong>Atlia</strong> (CNPJ 45.593.862/0001-03) ("nós", "nosso" ou "plataforma") é uma plataforma
+              de gestão estratégica municipal. Esta Política de Privacidade explica como coletamos, usamos,
+              armazenamos e protegemos os dados pessoais de visitantes do nosso site e de usuários da plataforma,
+              em conformidade com a
               Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD).
             </p>
           </section>

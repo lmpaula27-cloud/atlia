@@ -30,9 +30,9 @@ export default function TermosPage() {
 
           <section>
             <p>
-              Estes Termos de Uso regulam a utilização da plataforma <strong>Atlia</strong>, destinada à gestão
-              estratégica municipal. Ao acessar ou utilizar a plataforma, você concorda com os termos abaixo.
-              Caso não concorde, não utilize o serviço.
+              Estes Termos de Uso regulam a utilização da plataforma <strong>Atlia</strong> (CNPJ
+              45.593.862/0001-03), destinada à gestão estratégica municipal. Ao acessar ou utilizar a
+              plataforma, você concorda com os termos abaixo. Caso não concorde, não utilize o serviço.
             </p>
           </section>
 

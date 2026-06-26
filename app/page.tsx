@@ -618,7 +618,7 @@ export default function LandingPage() {
             <Link href="/termos"       className="hover:text-white/70 transition-colors">Termos de Uso</Link>
             <Link href="/login"        className="hover:text-white/70 transition-colors">Entrar</Link>
           </div>
-          <p className="text-xs text-center">© 2026 Atlia — Todos os direitos reservados</p>
+          <p className="text-xs text-center">© 2026 Atlia — CNPJ 45.593.862/0001-03 — Todos os direitos reservados</p>
         </div>
       </footer>
 
