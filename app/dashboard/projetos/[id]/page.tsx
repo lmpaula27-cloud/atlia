@@ -13,6 +13,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser'
 import {
   ArrowLeft, CheckCircle2, Circle, Clock, AlertTriangle,
   Tag, Target, Layers, FileText, Building2, Loader2, Pencil, Trash2, Plus,
+  Send, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -42,7 +43,12 @@ const marcoLinhaStyle: Record<string, string> = {
 }
 
 const tipoHistoricoIcon: Record<string, string> = {
-  marco: '🏁', contrato: '📄', status: '🔄', alerta: '⚠️', relatorio: '📊',
+  marco: '🏁', contrato: '📄', status: '🔄', alerta: '⚠️', relatorio: '📊', diario: '📝',
+}
+
+function fmtDataHora(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
 function marcoIconFor(status: string) {
@@ -101,6 +107,14 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
   const [deletandoMarco, setDeletandoMarco] = useState(false)
   const usuario = useCurrentUser()
 
+  // ── Diário de bordo ───────────────────────────────────────────
+  const [novaAtualizacao, setNovaAtualizacao]   = useState('')
+  const [enviandoAtualizacao, setEnviandoAtualizacao] = useState(false)
+  const [verHistoricoCompleto, setVerHistoricoCompleto] = useState(false)
+  const [editandoHistId, setEditandoHistId]     = useState<string | null>(null)
+  const [textoEdicaoHist, setTextoEdicaoHist]   = useState('')
+  const [salvandoEdicaoHist, setSalvandoEdicaoHist] = useState(false)
+
   // Um usuário pode editar se for admin, ou se for gestor com acesso à secretaria do projeto
   const podeEditar = !usuario.carregando && projeto && (
     usuario.perfil === 'admin' ||
@@ -118,7 +132,7 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
         secretarias(nome, sigla, responsavel),
         objetivos(nome, eixos(nome, cor)),
         marcos(id, titulo, descricao, data_prevista, data_conclusao, status, pct, ordem),
-        historico_projetos(id, tipo, descricao, created_at)
+        historico_projetos(id, tipo, descricao, created_at, usuario_id, usuarios(nome))
       `)
       .eq('id', params.id)
       .single()
@@ -175,6 +189,44 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
       ordem:          marco.ordem,
     })
     setMarcoAberto(true)
+  }
+
+  async function adicionarAtualizacao() {
+    if (!novaAtualizacao.trim()) return
+    setEnviandoAtualizacao(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('historico_projetos').insert({
+      projeto_id: params.id,
+      usuario_id: usuario.id || null,
+      tipo:       'diario',
+      descricao:  novaAtualizacao.trim(),
+    })
+    setEnviandoAtualizacao(false)
+    if (!error) {
+      setNovaAtualizacao('')
+      setSucesso('Atualização registrada no diário de bordo.')
+      carregar()
+    }
+  }
+
+  function iniciarEdicaoHist(h: any) {
+    setEditandoHistId(h.id)
+    setTextoEdicaoHist(h.descricao)
+  }
+
+  async function salvarEdicaoHist() {
+    if (!editandoHistId || !textoEdicaoHist.trim()) return
+    setSalvandoEdicaoHist(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('historico_projetos')
+      .update({ descricao: textoEdicaoHist.trim() })
+      .eq('id', editandoHistId)
+    setSalvandoEdicaoHist(false)
+    if (!error) {
+      setEditandoHistId(null)
+      carregar()
+    }
   }
 
   // Converte dados do projeto para o formato do form
@@ -504,27 +556,104 @@ export default function ProjetoDetalhePage({ params }: { params: { id: string } 
               )}
             </div>
 
-            {/* Histórico */}
+            {/* Diário de Bordo */}
             <div className="card">
-              <h2 className="font-semibold text-atlia-navy text-sm mb-4">Histórico de Atividades</h2>
-              <div className="space-y-3">
-                {[...historico].reverse().map((h: any, i: number) => (
-                  <div key={h.id ?? i} className="flex gap-3 text-sm">
-                    <span className="text-xs text-atlia-muted w-24 shrink-0 pt-0.5">
-                      {fmtData(h.created_at)}
-                    </span>
-                    <div className="flex-1 border-l border-gray-100 pl-3">
-                      <div className="flex items-start gap-1.5 mb-0.5">
-                        <span className="text-base leading-none mt-0.5">
-                          {tipoHistoricoIcon[h.tipo] ?? '📌'}
-                        </span>
-                        <p className="font-medium text-gray-700">{h.descricao}</p>
-                      </div>
-                      <p className="text-xs text-atlia-muted capitalize">{h.tipo}</p>
-                    </div>
+              <h2 className="font-semibold text-atlia-navy text-sm mb-1">Diário de Bordo</h2>
+              <p className="text-xs text-atlia-muted mb-4">Registro de atualizações do projeto, da mais recente para a mais antiga</p>
+
+              {podeEditar && (
+                <div className="mb-5">
+                  <textarea
+                    value={novaAtualizacao}
+                    onChange={e => setNovaAtualizacao(e.target.value)}
+                    placeholder="Escreva a atualização de hoje sobre este projeto…"
+                    rows={2}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-atlia-blue focus:ring-2 focus:ring-atlia-blue/10 transition-all resize-none placeholder-gray-400"
+                  />
+                  <div className="flex justify-end mt-2">
+                    <button
+                      onClick={adicionarAtualizacao}
+                      disabled={enviandoAtualizacao || !novaAtualizacao.trim()}
+                      className="flex items-center gap-2 bg-atlia-navy text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-atlia-blue transition-colors disabled:opacity-50"
+                    >
+                      {enviandoAtualizacao
+                        ? <><Loader2 size={13} className="animate-spin" /> Registrando…</>
+                        : <><Send size={13} /> Registrar atualização</>
+                      }
+                    </button>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {(() => {
+                const todasOrdenadas = [...historico].reverse()
+                const visiveis = verHistoricoCompleto ? todasOrdenadas : todasOrdenadas.slice(0, 5)
+                if (todasOrdenadas.length === 0) {
+                  return <p className="text-sm text-atlia-muted italic">Nenhuma atualização registrada ainda.</p>
+                }
+                return (
+                  <>
+                    <div className="space-y-3">
+                      {visiveis.map((h: any, i: number) => (
+                        <div key={h.id ?? i} className="flex gap-3 text-sm group">
+                          <span className="text-xs text-atlia-muted w-28 shrink-0 pt-0.5">
+                            {fmtDataHora(h.created_at)}
+                          </span>
+                          <div className="flex-1 border-l border-gray-100 pl-3">
+                            {editandoHistId === h.id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={textoEdicaoHist}
+                                  onChange={e => setTextoEdicaoHist(e.target.value)}
+                                  rows={2}
+                                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-800 outline-none focus:border-atlia-blue resize-none"
+                                />
+                                <div className="flex items-center gap-1.5">
+                                  <button onClick={salvarEdicaoHist} disabled={salvandoEdicaoHist}
+                                    className="text-xs bg-atlia-navy text-white px-2.5 py-1 rounded-lg font-semibold hover:bg-atlia-blue disabled:opacity-60">
+                                    {salvandoEdicaoHist ? 'Salvando…' : 'Salvar'}
+                                  </button>
+                                  <button onClick={() => setEditandoHistId(null)}
+                                    className="text-xs text-gray-500 px-2 py-1 hover:text-gray-700">Cancelar</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start gap-1.5 mb-0.5">
+                                    <span className="text-base leading-none mt-0.5">
+                                      {tipoHistoricoIcon[h.tipo] ?? '📌'}
+                                    </span>
+                                    <p className="font-medium text-gray-700 whitespace-pre-wrap">{h.descricao}</p>
+                                  </div>
+                                  {podeEditar && (
+                                    <button onClick={() => iniciarEdicaoHist(h)}
+                                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-atlia-navy transition-all shrink-0">
+                                      <Pencil size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                                <p className="text-xs text-atlia-muted">{h.usuarios?.nome ?? 'Sistema'}</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {todasOrdenadas.length > 5 && (
+                      <button
+                        onClick={() => setVerHistoricoCompleto(v => !v)}
+                        className="flex items-center gap-1.5 text-xs text-atlia-blue hover:underline font-medium mt-4"
+                      >
+                        {verHistoricoCompleto
+                          ? <><ChevronUp size={14} /> Mostrar menos</>
+                          : <><ChevronDown size={14} /> Ver histórico completo ({todasOrdenadas.length})</>
+                        }
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </div>
 
