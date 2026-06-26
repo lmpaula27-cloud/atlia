@@ -14,7 +14,7 @@ interface MetaUI {
   concluidos: number
   emAndamento: number
   atrasados: number
-  ods: { numero: number; cor: string }[]
+  ods: { numero: number; nome: string; cor: string }[]
 }
 
 interface ObjetivoUI {
@@ -53,7 +53,7 @@ export default function MetasPage() {
     const [{ data: objRaw }, { data: projRaw }] = await Promise.all([
       supabase
         .from('objetivos')
-        .select('id, nome, eixos(nome, cor), metas(id, nome, pct_atual, peso, metas_ods(ods(numero, cor)))')
+        .select('id, nome, eixos(nome, cor), metas(id, nome, pct_atual, peso, metas_ods(ods(numero, nome, cor)))')
         .order('eixo_id'),
       supabase
         .from('projetos')
@@ -73,7 +73,7 @@ export default function MetasPage() {
             nome:          me.nome,
             pct_atual:     me.pct_atual,
             peso:          me.peso ?? 1,
-            ods:           (me.metas_ods ?? []).map((mo: any) => ({ numero: mo.ods?.numero, cor: mo.ods?.cor })),
+            ods:           (me.metas_ods ?? []).map((mo: any) => ({ numero: mo.ods?.numero, nome: mo.ods?.nome, cor: mo.ods?.cor })),
             totalProjetos: pMetas.length,
             concluidos:    pMetas.filter((p: any) => p.status === 'concluido').length,
             emAndamento:   pMetas.filter((p: any) => p.status === 'em_andamento' || p.status === 'atencao').length,
@@ -214,12 +214,16 @@ export default function MetasPage() {
                               peso {meta.peso}
                             </span>
                             {meta.ods.length > 0 && (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 {meta.ods.map(o => (
-                                  <span key={o.numero} title={`ODS ${o.numero}`}
-                                    className="w-4 h-4 rounded text-white text-[9px] font-bold flex items-center justify-center"
-                                    style={{ backgroundColor: o.cor }}>
-                                    {o.numero}
+                                  <span key={o.numero}
+                                    className="flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full text-xs font-medium"
+                                    style={{ backgroundColor: `${o.cor}1A`, color: o.cor }}>
+                                    <span className="w-4 h-4 rounded text-white text-[9px] font-bold flex items-center justify-center shrink-0"
+                                      style={{ backgroundColor: o.cor }}>
+                                      {o.numero}
+                                    </span>
+                                    {o.nome}
                                   </span>
                                 ))}
                               </div>

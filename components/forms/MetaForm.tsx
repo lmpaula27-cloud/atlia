@@ -175,28 +175,27 @@ export default function MetaForm({ metaInicial, onSuccess, onCancelar }: Props) 
           ODS — Objetivos de Desenvolvimento Sustentável
         </p>
         <p className="text-xs text-atlia-muted mb-4">Selecione um ou mais ODS relacionados a esta meta (opcional)</p>
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 gap-1.5 max-h-72 overflow-y-auto border border-gray-100 rounded-lg p-2">
           {odsOpts.map(o => {
             const ativo = odsSelecionados.includes(o.id)
             return (
               <button
                 key={o.id}
                 type="button"
-                title={o.nome}
                 onClick={() => toggleOds(o.id)}
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold transition-all"
-                style={{ backgroundColor: o.cor, opacity: ativo ? 1 : 0.25, transform: ativo ? 'scale(1)' : 'scale(0.92)' }}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all ${ativo ? 'bg-atlia-light' : 'hover:bg-gray-50'}`}
               >
-                {o.numero}
+                <span className="w-6 h-6 rounded text-white text-xs font-bold flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: o.cor, opacity: ativo ? 1 : 0.4 }}>
+                  {o.numero}
+                </span>
+                <span className={`text-xs leading-tight ${ativo ? 'text-gray-800 font-medium' : 'text-gray-500'}`}>
+                  {o.nome}
+                </span>
               </button>
             )
           })}
         </div>
-        {odsSelecionados.length > 0 && (
-          <p className="text-xs text-atlia-muted mt-2">
-            {odsOpts.filter(o => odsSelecionados.includes(o.id)).map(o => `ODS ${o.numero}`).join(', ')}
-          </p>
-        )}
       </div>
 
       {erro && (

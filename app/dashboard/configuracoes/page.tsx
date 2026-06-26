@@ -32,7 +32,7 @@ interface ObjetivoRow {
 interface MetaRow {
   id: string; nome: string; descricao: string | null
   objetivo_id: string; objetivo_nome: string; pct_atual: number; peso: number
-  ods_ids: string[]; ods: { numero: number; cor: string }[]
+  ods_ids: string[]; ods: { numero: number; nome: string; cor: string }[]
 }
 interface UsuarioRow {
   id: string; nome: string; cargo: string | null
@@ -249,7 +249,7 @@ export default function ConfiguracoesPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('metas')
-      .select('id, nome, descricao, pct_atual, peso, objetivo_id, objetivos(nome), metas_ods(ods_id, ods(numero, cor))')
+      .select('id, nome, descricao, pct_atual, peso, objetivo_id, objetivos(nome), metas_ods(ods_id, ods(numero, nome, cor))')
       .order('objetivo_id')
     setMetas((data ?? []).map((m: any) => ({
       id:            m.id,
@@ -260,7 +260,7 @@ export default function ConfiguracoesPage() {
       pct_atual:     m.pct_atual,
       peso:          m.peso ?? 1,
       ods_ids:       (m.metas_ods ?? []).map((mo: any) => mo.ods_id),
-      ods:           (m.metas_ods ?? []).map((mo: any) => ({ numero: mo.ods?.numero, cor: mo.ods?.cor })),
+      ods:           (m.metas_ods ?? []).map((mo: any) => ({ numero: mo.ods?.numero, nome: mo.ods?.nome, cor: mo.ods?.cor })),
     })))
     setCarregandoMet(false)
   }, [])
@@ -836,14 +836,18 @@ export default function ConfiguracoesPage() {
                         </td>
                         <td className="px-4 py-3.5 text-gray-600 text-xs">{me.objetivo_nome}</td>
                         <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1 flex-wrap">
+                          <div className="flex flex-col gap-1 max-w-[220px]">
                             {me.ods.length === 0
                               ? <span className="text-xs text-gray-300">—</span>
                               : me.ods.map(o => (
-                                  <span key={o.numero} title={`ODS ${o.numero}`}
-                                    className="w-5 h-5 rounded text-white text-[10px] font-bold flex items-center justify-center"
-                                    style={{ backgroundColor: o.cor }}>
-                                    {o.numero}
+                                  <span key={o.numero}
+                                    className="flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-full text-xs font-medium w-fit"
+                                    style={{ backgroundColor: `${o.cor}1A`, color: o.cor }}>
+                                    <span className="w-4 h-4 rounded text-white text-[9px] font-bold flex items-center justify-center shrink-0"
+                                      style={{ backgroundColor: o.cor }}>
+                                      {o.numero}
+                                    </span>
+                                    {o.nome}
                                   </span>
                                 ))
                             }
