@@ -49,8 +49,10 @@ Hoje só existe exportação de relatórios em PDF. Avaliar exportar para Excel/
 ## 10. Testes automatizados
 O projeto não tem nenhum teste (unitário ou e2e) hoje. Conforme o número de fluxos críticos crescer (convite, RLS multi-secretaria, relatórios), a falta de testes aumenta o risco de regressão silenciosa.
 
-## 11. Página de Privacidade/Termos (LGPD)
+## 11. Página de Privacidade/Termos (LGPD) ✅ Concluído
 A landing page já captura leads (nome, e-mail, telefone, município) via formulário, mas não há política de privacidade nem termos de uso publicados — exigência básica de LGPD para coleta de dados pessoais.
+
+*Entregue: `/privacidade` (Política de Privacidade) e `/termos` (Termos de Uso), linkados no rodapé do site e abaixo do formulário de contato. Cobre dados coletados, finalidade, base legal, operadores de dados (Supabase/Vercel/Resend), direitos do titular (LGPD art. 18) e cookies. **Pendência:** os textos não incluem CNPJ/razão social do Atlia (não tenho esse dado) — revisar com seu jurídico antes de publicar definitivamente, especialmente as cláusulas de foro e responsabilidade.*
 
 ## 12. Confirmar premissa de single-tenant
 Várias queries (ex.: `municipios.select('id').single()`) assumem que existe exatamente um município no banco. Se a estratégia for vender Atlia para várias prefeituras dentro do mesmo projeto Supabase (multi-tenant), isso precisa ser revisto antes de o segundo cliente entrar.

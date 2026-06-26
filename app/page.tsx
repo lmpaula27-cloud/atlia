@@ -579,7 +579,8 @@ export default function LandingPage() {
                 <ArrowRight size={16} />
               </button>
               <p className="text-center text-xs text-atlia-muted mt-3">
-                Seus dados são usados apenas para contato. Sem spam.
+                Seus dados são usados apenas para contato, conforme nossa{' '}
+                <Link href="/privacidade" className="text-atlia-blue hover:underline">Política de Privacidade</Link>. Sem spam.
               </p>
             </form>
           )}
@@ -613,6 +614,8 @@ export default function LandingPage() {
             <a href="#funcionalidades" className="hover:text-white/70 transition-colors">Funcionalidades</a>
             <a href="#planos"          className="hover:text-white/70 transition-colors">Planos</a>
             <a href="#contato"         className="hover:text-white/70 transition-colors">Contato</a>
+            <Link href="/privacidade"  className="hover:text-white/70 transition-colors">Privacidade</Link>
+            <Link href="/termos"       className="hover:text-white/70 transition-colors">Termos de Uso</Link>
             <Link href="/login"        className="hover:text-white/70 transition-colors">Entrar</Link>
           </div>
           <p className="text-xs text-center">© 2026 Atlia — Todos os direitos reservados</p>
