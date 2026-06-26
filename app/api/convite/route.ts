@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -17,26 +18,45 @@ export async function POST(request: NextRequest) {
     : secretaria_id ? [secretaria_id] : []
 
   const url         = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey      = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  if (!url || !serviceKey) {
+  if (!url || !serviceKey || !anonKey) {
     return NextResponse.json({ erro: 'Configuração de servidor incompleta.' }, { status: 500 })
   }
+
+  // Identifica quem está chamando a rota via cookie de sessão (client com RLS, não service role)
+  const supabaseAuth = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() { return request.cookies.getAll() },
+      setAll() { /* não precisa persistir cookies nesta rota */ },
+    },
+  })
+
+  const { data: { user: chamador } } = await supabaseAuth.auth.getUser()
+  if (!chamador) {
+    return NextResponse.json({ erro: 'Não autenticado.' }, { status: 401 })
+  }
+
+  const { data: perfilChamador } = await supabaseAuth
+    .from('usuarios')
+    .select('perfil, municipio_id')
+    .eq('id', chamador.id)
+    .single()
+
+  if (!perfilChamador || perfilChamador.perfil !== 'admin') {
+    return NextResponse.json({ erro: 'Apenas administradores podem convidar usuários.' }, { status: 403 })
+  }
+
+  // Município do usuário que está convidando — nunca de uma busca "às cegas" na tabela inteira
+  // (importante: este endpoint usa service role abaixo, que ignora RLS; sem isso, com mais de
+  // um município cadastrado o convite poderia vincular o novo usuário ao município errado)
+  const municipio = { id: perfilChamador.municipio_id }
 
   // Cliente com service role — só disponível server-side
   const supabaseAdmin = createClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
-
-  // 1. Buscar o municipio_id (single tenant — retorna apenas um)
-  const { data: municipio } = await supabaseAdmin
-    .from('municipios')
-    .select('id')
-    .single()
-
-  if (!municipio) {
-    return NextResponse.json({ erro: 'Município não encontrado.' }, { status: 500 })
-  }
 
   // 2. Convidar via Supabase Auth (envia e-mail com link de acesso)
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {

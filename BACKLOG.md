@@ -56,8 +56,14 @@ A landing page já captura leads (nome, e-mail, telefone, município) via formul
 
 *Entregue: `/privacidade` (Política de Privacidade) e `/termos` (Termos de Uso), linkados no rodapé do site e abaixo do formulário de contato. Cobre dados coletados, finalidade, base legal, operadores de dados (Supabase/Vercel/Resend), direitos do titular (LGPD art. 18) e cookies. CNPJ 45.593.862/0001-03 incluído nas duas páginas e no rodapé. **Pendência:** ainda vale revisar com jurídico as cláusulas de foro e responsabilidade antes de publicar definitivamente.*
 
-## 12. Confirmar premissa de single-tenant
+## 12. Confirmar premissa de single-tenant ✅ Concluído (1 correção crítica aplicada)
 Várias queries (ex.: `municipios.select('id').single()`) assumem que existe exatamente um município no banco. Se a estratégia for vender Atlia para várias prefeituras dentro do mesmo projeto Supabase (multi-tenant), isso precisa ser revisto antes de o segundo cliente entrar.
+
+*Levantamento feito em todo o código (12 ocorrências de `.from('municipios')`). 11 delas são seguras: usam o client normal, então a RLS (`municipio_proprio`, filtra por `auth_municipio_id()`) já garante que `.single()` só retorna o município do próprio usuário, mesmo com vários municípios na base.*
+
+***Encontrado e corrigido 1 problema crítico:*** *`app/api/convite/route.ts` usava o client **service role** (que ignora RLS) e buscava o município com `.single()` sem filtro — com 2+ municípios cadastrados, o novo usuário convidado seria vinculado a um município aleatório/incorreto. Mais grave: a rota **não verificava se quem chamava estava autenticado** — qualquer pessoa, logada ou não, podia chamar `/api/convite` e criar uma conta admin com acesso total ao município demo. Corrigido: a rota agora autentica o chamador via cookie de sessão, confirma que é admin, e usa o `municipio_id` do próprio chamador — nunca mais uma busca às cegas na tabela.*
+
+*UUID hardcoded do município demo (`00000000-...-001`) está isolado nas migrations de carga, não aparece em código de aplicação — sem risco. Não existe tela de "trocar de município" (cada usuário pertence a 1 município só), o que é adequado ao modelo atual.*
 
 ---
 
