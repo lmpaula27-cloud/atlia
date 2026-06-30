@@ -22,8 +22,10 @@ Adicionar controle financeiro ao projeto: valor orçado, valor empenhado/gasto, 
 
 *Entregue: orçamento e executado já existiam; adicionado campo `fonte_recurso` (texto livre) no formulário e no detalhe do projeto. Não foi feita carga em massa a partir da planilha — a coluna "Recursos" da aba Geral só tinha 13 de 632 linhas preenchidas, dado real mas esparso demais para migrar automaticamente. Fica para preenchimento manual conforme necessário. O histórico de lançamentos de custo (múltiplos registros por projeto) não foi construído — ficaria como evolução futura se houver necessidade real.*
 
-## 5. Avaliar mais "temas" de gerenciamento de projetos
+## 5. Avaliar mais "temas" de gerenciamento de projetos — ⏸️ Despriorizado
 Investigar quais outras dimensões de PM vale a pena adicionar (riscos, equipe/responsáveis, dependências entre projetos, anexos/documentos, cronograma com marcos — já existe `marcos`). Definir prioridade após avaliação.
+
+*Decisão (2026-06-29): legal de ter, mas não essencial para começar a vender. Fica parado até haver demanda real de cliente.*
 
 ## 6. Estrutura de ponderação em cascata (projeto → meta → objetivo → visão) ✅ Concluído
 Criar pesos configuráveis: cada projeto tem um peso dentro da sua meta, cada meta um peso dentro do objetivo, cada objetivo um peso dentro da visão de futuro do município. Com isso, calcular um indicador agregado de "quão perto o município está da visão de futuro" — um % consolidado que sobe a cascata ponderada de progresso.
