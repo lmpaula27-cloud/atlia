@@ -169,10 +169,10 @@ export default function LandingPage() {
                   Solicitar demonstração gratuita
                   <ArrowRight size={16} />
                 </a>
-                <Link href="/login"
+                <a href="#planos"
                   className="flex items-center gap-2 border border-white/25 text-white font-medium px-6 py-3 rounded-lg hover:bg-white/10 transition-colors">
-                  Ver plataforma
-                </Link>
+                  Ver planos e preços
+                </a>
               </div>
               <div className="flex items-center gap-6 text-sm text-white/60">
                 <div className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-green-400" /> Sem licitação</div>
@@ -233,10 +233,10 @@ export default function LandingPage() {
                     <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
                       <p className="text-[10px] font-semibold text-gray-500 mb-2">Eixos Estratégicos</p>
                       {[
-                        { nome:'Uberlândia Sustentável', pct:44, cor:'#1F3864' },
-                        { nome:'Vida em Uberlândia',     pct:56, cor:'#2E75B6' },
-                        { nome:'Espaço Uberlândia',      pct:51, cor:'#C07B00' },
-                        { nome:'Uberlândia Humana',      pct:38, cor:'#538135' },
+                        { nome:'Cidade Sustentável',    pct:44, cor:'#1F3864' },
+                        { nome:'Qualidade de Vida',     pct:56, cor:'#2E75B6' },
+                        { nome:'Infraestrutura Urbana', pct:51, cor:'#C07B00' },
+                        { nome:'Inclusão Social',       pct:38, cor:'#538135' },
                       ].map(e => (
                         <div key={e.nome} className="mb-1.5">
                           <div className="flex justify-between text-[9px] text-gray-500 mb-0.5">
@@ -278,10 +278,10 @@ export default function LandingPage() {
       <section className="bg-white border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { valor: '100%',     label: 'na nuvem, sem instalação' },
-            { valor: 'Ilimitados', label: 'projetos e indicadores' },
-            { valor: '5 dias',   label: 'para implantar'           },
-            { valor: 'PDF',      label: 'relatórios em 1 clique'   },
+            { valor: '5 dias',    label: 'do contrato à gestão ativa' },
+            { valor: '100%',      label: 'na nuvem — zero instalação'  },
+            { valor: 'Dispensa',  label: 'de licitação (art. 75, II)'  },
+            { valor: '1 clique',  label: 'para gerar relatório em PDF' },
           ].map(s => (
             <div key={s.label}>
               <p className="text-4xl font-bold text-atlia-navy">{s.valor}</p>
@@ -511,6 +511,58 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── FAQ ── */}
+      <section className="py-20 px-6 bg-white">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold text-atlia-blue uppercase tracking-wider">Dúvidas frequentes</span>
+            <h2 className="text-3xl font-bold text-atlia-navy mt-2">Perguntas que todo prefeito faz</h2>
+          </div>
+          <div className="space-y-4">
+            {[
+              {
+                p: 'Como funciona a contratação sem licitação?',
+                r: 'O Atlia é enquadrado como serviço de tecnologia de informação abaixo do limite de R$ 57.200/ano, permitindo contratação por dispensa de licitação com base no art. 75, inciso II da Lei 14.133/2021. Você assina o contrato diretamente conosco e emite a nota de empenho — processo simples, sem pregão.',
+              },
+              {
+                p: 'Já temos dados em planilhas. É possível importar?',
+                r: 'Sim. Nossa equipe recebe as planilhas do plano de governo (projetos, secretarias, metas) e faz a carga inicial para o sistema durante a implantação. O município começa a usar já com os dados preenchidos — sem trabalho manual.',
+              },
+              {
+                p: 'Precisamos de equipe de TI para manter o sistema?',
+                r: 'Não. O Atlia é 100% na nuvem — sem servidor local, sem instalação e sem manutenção pela prefeitura. Atualizações e backups são automáticos. Qualquer computador com internet acessa o sistema.',
+              },
+              {
+                p: 'Os dados da prefeitura ficam seguros e em conformidade com a LGPD?',
+                r: 'Sim. Cada prefeitura tem seus dados completamente isolados das demais (multi-tenant). O acesso é por usuário e senha, com perfis de permissão configuráveis por secretaria. A plataforma segue a Lei Geral de Proteção de Dados (LGPD) — consulte nossa Política de Privacidade para detalhes.',
+              },
+              {
+                p: 'Qual o prazo mínimo de contrato?',
+                r: 'O contrato padrão é anual, renovável. Não há multa em caso de não renovação — basta não renovar ao final do período. Não trabalhamos com contratos mensais avulsos.',
+              },
+              {
+                p: 'E se precisarmos de ajuda depois da implantação?',
+                r: 'Suporte está incluído em todos os planos. Nos planos Starter e Plus, o atendimento é por e-mail com resposta em até 1 dia útil. No plano Pro, o suporte é dedicado com tempo de resposta prioritário.',
+              },
+            ].map((item, i) => (
+              <details key={i} className="group border border-gray-200 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between gap-4 px-6 py-4 cursor-pointer list-none hover:bg-gray-50 transition-colors">
+                  <span className="font-semibold text-atlia-navy text-sm">{item.p}</span>
+                  <span className="text-atlia-blue shrink-0 text-lg font-light group-open:rotate-45 transition-transform">+</span>
+                </summary>
+                <div className="px-6 pb-5">
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.r}</p>
+                </div>
+              </details>
+            ))}
+          </div>
+          <p className="text-center text-sm text-atlia-muted mt-10">
+            Outra dúvida?{' '}
+            <a href="mailto:contato@atlia.com.br" className="text-atlia-blue hover:underline">contato@atlia.com.br</a>
+          </p>
+        </div>
+      </section>
+
       {/* ── FORMULÁRIO ── */}
       <section id="contato" className="py-20 px-6 bg-atlia-navy">
         <div className="max-w-3xl mx-auto">
@@ -575,7 +627,7 @@ export default function LandingPage() {
               )}
               <button type="submit" disabled={enviando}
                 className="mt-6 w-full bg-atlia-navy text-white font-bold py-3.5 rounded-xl hover:bg-atlia-blue transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-70">
-                {enviando ? 'Enviando…' : 'Quero saber mais'}
+                {enviando ? 'Enviando…' : 'Agendar demonstração gratuita'}
                 <ArrowRight size={16} />
               </button>
               <p className="text-center text-xs text-atlia-muted mt-3">
